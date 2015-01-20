@@ -1,0 +1,142 @@
+html, body {
+	margin: 0;
+	padding: 0;
+	font-family: verdana, 'Bitstream Vera Sans', helvetica, sans-serif;
+	background-color: #666;
+}
+
+div, span, img, h1, h2, h3, h4, h5, h6, p, ul, li, form {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	font-weight: inherit;
+}
+
+a {
+	text-decoration: none;
+	color: inherit;
+}
+
+
+/* header */
+
+div.header {
+	height: 40px;
+}
+
+
+/* videos */
+
+div.videos {
+	margin: auto;
+	display: flex;
+	display: -webkit-flex;
+	flex: column;
+	-webkit-flex: column;
+	justify-content: center;
+	-webkit-justify-content: center;
+}
+
+div.videos > div.peerVideo {
+	position: relative;
+}
+
+div.videos > div.peerVideo > video,
+div.videos > div.peerVideo > object {
+	display: block;
+}
+
+div.videos > div.peerVideo > video.remote,
+div.videos > div.peerVideo > object.remote {
+	/*height: 720px;*/
+	height: 480px;
+	background-color: #444;
+}
+
+div.videos > div.peerVideo > video.local,
+div.videos > div.peerVideo > object.local {
+	position: absolute;
+	bottom: 8px;
+	left: 8px;
+	width: 160px;
+	height: 120px;
+	background-color: #222;
+	border: 1px solid #bbb;
+}
+
+
+/* startStopButton */
+
+div#startStopButton {
+	position: fixed;
+	bottom: 50px;
+	left: 0;
+	right: 0;
+	margin: auto;
+	width: 200px;
+	height: 60px;
+	line-height: 60px;
+	background: #3498db;
+	background-image: -webkit-linear-gradient(top, #3498db, #2980b9);
+	background-image: -moz-linear-gradient(top, #3498db, #2980b9);
+	background-image: -ms-linear-gradient(top, #3498db, #2980b9);
+	background-image: -o-linear-gradient(top, #3498db, #2980b9);
+	background-image: linear-gradient(to bottom, #3498db, #2980b9);
+	-webkit-border-radius: 5;
+	-moz-border-radius: 5;
+	border-radius: 5px;
+	border: 4px solid #3498db;
+	text-align: center;
+	-moz-user-select: none;
+	-webkit-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+	font-family: Arial;
+	color: #ffffff;
+	font-size: 20px;
+	text-decoration: none;
+	z-index: 20;
+}
+
+div#startStopButton.enabled:hover:not(.connecting) {
+	background: #3cb0fd;
+	background-image: -webkit-linear-gradient(top, #3cb0fd, #3498db);
+	background-image: -moz-linear-gradient(top, #3cb0fd, #3498db);
+	background-image: -ms-linear-gradient(top, #3cb0fd, #3498db);
+	background-image: -o-linear-gradient(top, #3cb0fd, #3498db);
+	background-image: linear-gradient(to bottom, #3cb0fd, #3498db);
+	border-color: #3cb0fd;
+	cursor: pointer;
+}
+
+div#startStopButton.enabled.connecting {
+	font-size: 16px;
+	font-style: italic;
+	cursor: default;
+}
+
+div#startStopButton.enabled.connected {
+	background: #d9345d;
+	background-image: -webkit-linear-gradient(top, #d9345d, #85132a);
+	background-image: -moz-linear-gradient(top, #d9345d, #85132a);
+	background-image: -ms-linear-gradient(top, #d9345d, #85132a);
+	background-image: -o-linear-gradient(top, #d9345d, #85132a);
+	background-image: linear-gradient(to bottom, #d9345d, #85132a);
+	border-color: #d9345d;
+}
+
+div#startStopButton.enabled.connected:hover {
+	background: #eb5077;
+	background-image: -webkit-linear-gradient(top, #eb5077, #992e45);
+	background-image: -moz-linear-gradient(top, #eb5077, #992e45);
+	background-image: -ms-linear-gradient(top, #eb5077, #992e45);
+	background-image: -o-linear-gradient(top, #eb5077, #992e45);
+	background-image: linear-gradient(to bottom, #eb5077, #992e45);
+	border-color: #eb5077;
+}
+
+div#startStopButton.enabled.established,
+div#startStopButton.enabled.established:hover {
+	border-color: #bde42e;
+}
+
