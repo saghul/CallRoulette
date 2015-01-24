@@ -170,8 +170,6 @@ function runCallRoulette() {
                     self.stop();
                 }
             );
-        } else if (msg.type == 'bye') {
-            // TODO
         } else {
             console.log('Invalid message type: ' + msg.type);
         }
