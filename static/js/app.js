@@ -121,7 +121,7 @@ function runCallRoulette() {
             },
             // error
             function(error) {
-                console.log("Error getting local media stream: " + error);
+	        alertify.error("Error getting local media stream: " + error);
                 stop();
             });
     }
