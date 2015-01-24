@@ -171,7 +171,11 @@ class WebSocketHandler:
 
         # wait for end
         fs = [peerA.read(), peerB.read()]
-        yield from asyncio.wait(fs)
+        yield from asyncio.wait(fs, return_when=asyncio.FIRST_COMPLETED)
+
+        # close connections
+        peerA.close()
+        peerB.close()
 
 
 @asyncio.coroutine
