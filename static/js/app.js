@@ -114,6 +114,10 @@ function runCallRoulette() {
                     console.log('WS Error');
                     stop();
                 };
+                ws.onclose = function(event) {
+                    console.log('WS closed!');
+                    stop();
+                }
             },
             // error
             function(error) {
