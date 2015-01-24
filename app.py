@@ -134,7 +134,7 @@ class WebSocketHandler:
         peerA.write(json.dumps(data))
 
         # get offer
-        data = yield from peerA.read(timeout=15.0)
+        data = yield from peerA.read(timeout=5.0)
         if not data:
             peerA.close()
             peerB.close()
@@ -152,7 +152,7 @@ class WebSocketHandler:
         peerB.write(json.dumps(data))
 
         # wait for answer
-        data = yield from peerB.read(timeout=15.0)
+        data = yield from peerB.read(timeout=5.0)
         if not data:
             peerA.close()
             peerB.close()
