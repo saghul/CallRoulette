@@ -48,7 +48,7 @@ div.videos > div.peerVideo > object {
 
 div.videos > div.peerVideo > video.remote,
 div.videos > div.peerVideo > object.remote {
-	/*height: 720px;*/
+	height: 640px;
 	height: 480px;
 	background-color: #444;
 }
