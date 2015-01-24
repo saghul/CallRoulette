@@ -140,7 +140,6 @@ class WebSocketHandler:
             peerB.close()
             return
         data = json.loads(data)
-        print(data)
         if data.get('type') != 'offer' or not data.get('sdp'):
             log.warning('Invalid offer received')
             peerA.close()
@@ -158,7 +157,6 @@ class WebSocketHandler:
             peerB.close()
             return
         data = json.loads(data)
-        print(data)
         if data.get('type') != 'answer' or not data.get('sdp'):
             log.warning('Invalid answer received')
             peerA.close()
