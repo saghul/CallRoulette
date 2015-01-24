@@ -71,7 +71,7 @@ class Connection:
 
     @property
     def closed(self):
-        return self._closed
+        return self._closed or self.ws.closing
 
     @asyncio.coroutine
     def read(self, timeout=None):
@@ -117,6 +117,10 @@ class WebSocketHandler:
         if self.waiter is None:
             self.waiter = asyncio.Future()
             other = yield from self.waiter
+            if conn.closed:
+                # the user got bored and stopped waiting, restart
+                other.close()
+                return ws
             self.waiter = None
             asyncio.async(self.run_roulette(conn, other))
         else:
