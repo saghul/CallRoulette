@@ -75,6 +75,7 @@ function runCallRoulette() {
     // TODO: create a Callroulette class
 
     var mediaStream = null;
+    var remoteStream = null;
     var ws = null;
     var connection = null;
     var status = 'stopped';
@@ -134,6 +135,10 @@ function runCallRoulette() {
         if (mediaStream !== null) {
             rtcninja.closeMediaStream(mediaStream);
             mediaStream = null;
+        }
+        if (remoteStream !== null) {
+            rtcninja.closeMediaStream(remoteStream);
+            remoteStream = null;
         }
         if (connection !== null) {
             connection.close();
@@ -257,7 +262,12 @@ function runCallRoulette() {
     }
 
     function onAddStream(event, stream) {
-        console.log('Remote stream added! ' + stream);
+        if (remoteStream !== null) {
+            // only one stream is supported
+            return;
+        }
+        remoteStream = stream;
+        console.log('Remote stream added');
         var elem = document.querySelector('.peerVideo video.remote');
         rtcninja.attachMediaStream(elem, stream);
     }
