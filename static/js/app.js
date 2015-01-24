@@ -182,6 +182,7 @@ function runCallRoulette() {
                 },
                 // failure
                 function(error) {
+                    stop();
                 }
             );
         } else {
