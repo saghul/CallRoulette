@@ -1,5 +1,68 @@
 
-function initializeCallRoulette() {
+function createLocalDescription(type, connection, onSuccess, onFailure) {
+    var constraints = null;
+
+    console.log('creating ' + type);
+    if (type === 'offer') {
+        connection.createOffer(
+                // success
+                createSucceeded,
+                // failure
+                function(error) {
+                    onFailure(error);
+                },
+                // constraints
+                constraints
+                );
+    } else if (type === 'answer') {
+        connection.createAnswer(
+                // success
+                createSucceeded,
+                // failure
+                function(error) {
+                    onFailure(error);
+                },
+                // constraints
+                constraints
+                );
+    } else {
+        throw new Error('createLocalDescription() | type must be "offer" or "answer", but "' +type+ '" was given');
+    }
+
+    // createAnswer or createOffer succeeded
+    function createSucceeded(desc) {
+        console.log('Create succeded');
+        connection.onicecandidate = function(event, candidate) {
+            console.log('got candidate!');
+            if (!candidate) {
+                connection.onicecandidate = null;
+                onSuccess(connection.localDescription.sdp);
+                onSuccess = null;
+            }
+        };
+        connection.setLocalDescription(desc,
+                // success
+                function() {
+                    console.log('lalala ' + connection.iceGatheringState);
+                    if (connection.iceGatheringState === 'complete') {
+                        if (onSuccess) {
+                            onSuccess(connection.localDescription.sdp);
+                            onSuccess = null;
+                        }
+                    }
+                },
+                // failure
+                function(error) {
+                    if (onFailure) {
+                        onFailure(error);
+                    }
+                }
+                );
+    }
+}
+
+
+function runCallRoulette() {
     if (!rtcninja.called) {
         rtcninja();
     }
@@ -12,6 +75,8 @@ function initializeCallRoulette() {
 
     console.log("WebRTC is supported!");
     alertify.success('Your browser supports WebRTC');
+
+    // TODO: create a Callroulette class
 
     var mediaStream = null;
     var ws = null;
@@ -58,30 +123,142 @@ function initializeCallRoulette() {
             rtcninja.closeMediaStream(mediaStream);
             mediaStream = null;
         }
+        if (connection !== null) {
+            connection.close();
+            connection = null;
+        }
     }
 
     function processWsMessage(event) {
         var msg = JSON.parse(event.data);
-        if (msg.type === 'test') {
-            testRtc();
-            var reply = {type: 'answer',
-                         data: 'lolailooo'};
-            ws.send(JSON.stringify(reply));
+        if (msg.type === 'offer_request') {
+            initWithOfferRequest(// success
+                                function(sdp, stream) {
+                                    var reply = {type: 'offer',
+                                                 sdp: sdp};
+                                    ws.send(JSON.stringify(reply));
+                                },
+                                // failure
+                                function(error) {
+                                    stop();
+                                });
+        } else if (msg.type == 'offer') {
+            initWithOffer(msg.sdp,
+                    // success
+                                function(sdp, stream) {
+                                    var reply = {type: 'answer',
+                                                 sdp: sdp};
+                                    ws.send(JSON.stringify(reply));
+                                },
+                                // failure
+                                function(error) {
+                                    stop();
+                                });
+        } else if (msg.type == 'answer') {
+            var answer = {type: 'answer', sdp: msg.sdp};
+            connection.setRemoteDescription(new rtcninja.RTCSessionDescription(answer),
+                    // success
+                    function() {
+                    },
+                    // error
+                    function(error) {
+                    }
+            );
+        } else {
+            console.log('Invalid message type: ' + msg.type);
+            stop();
         }
+    }
+
+    function initWithOfferRequest(onSuccess, onFailure) {
+        var pcConfig = {iceServers: []};
+        var rtcConstraints = null;
+        var conn = new rtcninja.Connection(pcConfig, rtcConstraints);
+        connection = conn;
+
+        connection.onaddstream = onAddStream;
+
+        rtcninja.getUserMedia({audio: true, video: true},
+                function(stream) {
+                    mediaStream = stream;
+                    console.log("Local media stream acquired successfully");
+                    var elem = document.querySelector('.peerVideo video.local');
+                    rtcninja.attachMediaStream(elem, stream);
+                    connection.addStream(stream);
+                    createLocalDescription('offer',
+                            connection,
+                            // onSuccess
+                            function(sdp, stream) {
+                                console.log('Got SDP!\n' + sdp);
+                                onSuccess(sdp);
+                            },
+                            // onFailure
+                            function(error) {
+                                console.log('Error getting SDP: ' + error);
+                                onFailure(error);
+                            }
+                            );
+                },
+            function(error) {
+                console.log("Error getting local media stream: " + error);
+                onFailure(error);
+            });
 
     }
 
-    function testRtc() {
+    function initWithOffer(sdp, onSuccess, onFailure) {
+        var pcConfig = {iceServers: []};
+        var rtcConstraints = null;
+        var conn = new rtcninja.Connection(pcConfig, rtcConstraints);
+        connection = conn;
+
+        connection.onaddstream = onAddStream;
+
         rtcninja.getUserMedia({audio: true, video: true},
-                            function(stream) {
-                                mediaStream = stream;
-                                console.log("Local media stream acquired successfully");
-                                var elem = document.querySelector('.peerVideo video.remote');
-                                rtcninja.attachMediaStream(elem, mediaStream);
+                // success
+                function(stream) {
+                    mediaStream = stream;
+                    console.log("Local media stream acquired successfully");
+                    var elem = document.querySelector('.peerVideo video.local');
+                    rtcninja.attachMediaStream(elem, stream);
+                    connection.addStream(stream);
+                    var offer = {type: 'offer', sdp: sdp};
+                    connection.setRemoteDescription(new rtcninja.RTCSessionDescription(offer),
+                            // success
+                            function() {
+                                createLocalDescription('answer',
+                                        connection,
+                                        // onSuccess
+                                        function(sdp, stream) {
+                                            console.log('Got SDP!\n' + sdp);
+                                            onSuccess(sdp);
+                                        },
+                                        // onFailure
+                                        function(error) {
+                                            console.log('Error getting SDP: ' + error);
+                                            onFailure(error);
+                                        }
+                                );
                             },
-                            function(err) {
-                                console.log("Error getting local media stream: " + err);
-                            });
+                            // failure
+                            function(error) {
+                                console.log('Error setting remote description: ' + error);
+                                onFailure(error);
+                            }
+                    );
+                },
+                // error
+                function(error) {
+                    console.log("Error getting local media stream: " + error);
+                    onFailure(error);
+                }
+            );
+    } // initWithOffer
+
+    function onAddStream(event, stream) {
+        console.log('Remote stream added! ' + stream);
+        var elem = document.querySelector('.peerVideo video.remote');
+        rtcninja.attachMediaStream(elem, stream);
     }
 
 }
@@ -93,5 +270,5 @@ function initializeCallRoulette() {
     } else {
         document.addEventListener('DOMContentLoaded', fn);
     }
-})(initializeCallRoulette);
+})(runCallRoulette);
 

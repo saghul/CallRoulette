@@ -11,6 +11,7 @@ from aiohttp import web
 from aiohttp.log import web_logger, ws_logger
 
 logging.basicConfig(level=logging.DEBUG)
+log = logging.getLogger('CallRoulette')
 web_logger.setLevel(logging.DEBUG)
 ws_logger.setLevel(logging.DEBUG)
 
@@ -62,33 +63,115 @@ class StaticFilesHandler:
         return web.Response(body=data, content_type=content_type)
 
 
+class Connection:
+
+    def __init__(self, ws):
+        self.ws = ws
+        self._closed = False
+
+    @property
+    def closed(self):
+        return self._closed
+
+    @asyncio.coroutine
+    def read(self, timeout=None):
+        try:
+            data = yield from asyncio.wait_for(self.ws.receive_str(), timeout)
+            return data
+        except asyncio.TimeoutError:
+            log.warning('Timeout reading from socket')
+            self.close()
+        except web.WSClientDisconnectedError as e:
+            log.info('WS client disconnected: %d:%s' % (e.code, e.message))
+            self.close()
+        return ''
+
+    def write(self, data):
+        self.ws.send_str(data)
+
+    def close(self):
+        if self._closed:
+            return
+        if not self.ws.closing:
+            self.ws.close()
+        self._closed = True
+
+    @asyncio.coroutine
+    def wait_closed(self):
+        try:
+            yield from self.ws.wait_closed()
+        except web.WSClientDisconnectedError:
+            pass
+
+
 class WebSocketHandler:
     def __init__(self):
-        self.connections = set()
+        self.waiter = None
 
     @asyncio.coroutine
     def __call__(self, request):
         ws = web.WebSocketResponse(protocols=('callroulette',))
         ws.start(request)
 
-        self.connections.add(ws)
+        conn = Connection(ws)
+        if self.waiter is None:
+            self.waiter = asyncio.Future()
+            other = yield from self.waiter
+            self.waiter = None
+            asyncio.async(self.run_roulette(conn, other))
+        else:
+            self.waiter.set_result(conn)
 
-        data = dict(type='test', data='foo');
-        ws.send_str(json.dumps(data));
+        yield from conn.wait_closed()
 
-        while True:
-            try:
-                data = yield from ws.receive_str()
-                data = json.loads(data)
-                print(data)
-            except web.WSClientDisconnectedError as e:
-                ws_logger.info('WS client disconnected: %d:%s' % (e.code, e.message))
-                self.connections.remove(ws)
-                try:
-                    yield from ws.wait_closed()
-                except web.WSClientDisconnectedError:
-                    pass
-                return ws
+        return ws
+
+    @asyncio.coroutine
+    def run_roulette(self, peerA, peerB):
+        log.info('Running roulette: %s, %s' % (peerA, peerB))
+        # request offer
+        data = dict(type='offer_request');
+        peerA.write(json.dumps(data))
+
+        # get offer
+        data = yield from peerA.read(timeout=15.0)
+        if not data:
+            peerA.close()
+            peerB.close()
+            return
+        data = json.loads(data)
+        print(data)
+        if data.get('type') != 'offer' or not data.get('sdp'):
+            log.warning('Invalid offer received')
+            peerA.close()
+            peerB.close()
+            return
+
+        # send offer
+        data = dict(type='offer', sdp=data['sdp']);
+        peerB.write(json.dumps(data))
+
+        # wait for answer
+        data = yield from peerB.read(timeout=15.0)
+        if not data:
+            peerA.close()
+            peerB.close()
+            return
+        data = json.loads(data)
+        print(data)
+        if data.get('type') != 'answer' or not data.get('sdp'):
+            log.warning('Invalid answer received')
+            peerA.close()
+            peerB.close()
+            return
+
+        # dispatch answer
+        data = dict(type='answer', sdp=data['sdp']);
+        peerA.write(json.dumps(data))
+
+        # wait for end
+        fs = [peerA.read(), peerB.read()]
+        yield from asyncio.wait(fs)
 
 
 @asyncio.coroutine
@@ -104,7 +187,8 @@ def init(loop):
     return server, handler
 
 
-loop = asyncio.get_event_loop()
+loop = asyncio.new_event_loop()
+asyncio.set_event_loop(loop)
 server, handler = loop.run_until_complete(init(loop))
 loop.add_signal_handler(signal.SIGINT, loop.stop)
 loop.run_forever()
