@@ -1,63 +1,59 @@
 
-function createLocalDescription(type, connection, onSuccess, onFailure) {
-    var constraints = null;
-
+function createLocalDescription(type, connection, constraints, onSuccess, onFailure) {
     console.log('creating ' + type);
     if (type === 'offer') {
         connection.createOffer(
-                // success
-                createSucceeded,
-                // failure
-                function(error) {
-                    onFailure(error);
-                },
-                // constraints
-                constraints
-                );
+            // success
+            createSucceeded,
+            // failure
+            function(error) {
+                onFailure(error);
+            },
+            // constraints
+            constraints
+        );
     } else if (type === 'answer') {
         connection.createAnswer(
-                // success
-                createSucceeded,
-                // failure
-                function(error) {
-                    onFailure(error);
-                },
-                // constraints
-                constraints
-                );
+            // success
+            createSucceeded,
+            // failure
+            function(error) {
+                onFailure(error);
+            },
+            // constraints
+            constraints
+        );
     } else {
         throw new Error('createLocalDescription() | type must be "offer" or "answer", but "' +type+ '" was given');
     }
 
     // createAnswer or createOffer succeeded
     function createSucceeded(desc) {
-        console.log('Create succeded');
         connection.onicecandidate = function(event, candidate) {
-            console.log('got candidate!');
             if (!candidate) {
                 connection.onicecandidate = null;
                 onSuccess(connection.localDescription.sdp);
                 onSuccess = null;
             }
         };
-        connection.setLocalDescription(desc,
-                // success
-                function() {
-                    console.log('lalala ' + connection.iceGatheringState);
-                    if (connection.iceGatheringState === 'complete') {
-                        if (onSuccess) {
-                            onSuccess(connection.localDescription.sdp);
-                            onSuccess = null;
-                        }
-                    }
-                },
-                // failure
-                function(error) {
-                    if (onFailure) {
-                        onFailure(error);
+        connection.setLocalDescription(
+            desc,
+            // success
+            function() {
+                if (connection.iceGatheringState === 'complete') {
+                    if (onSuccess) {
+                        onSuccess(connection.localDescription.sdp);
+                        onSuccess = null;
                     }
                 }
-                );
+            },
+            // failure
+            function(error) {
+                if (onFailure) {
+                    onFailure(error);
+                }
+            }
+        );
     }
 }
 
@@ -99,16 +95,30 @@ function runCallRoulette() {
     function start() {
         console.log('Start');
         status = 'connecting';
-        ws = new WebSocket("ws://" + document.location.host + "/ws", "callroulette");
-        ws.onopen = function(event) {
-            console.log('Connected!');
-            status = 'connected';
-        };
-        ws.onerror = function(event) {
-            console.log('WS Error');
-            stop();
-        };
-        ws.onmessage = processWsMessage;
+
+        rtcninja.getUserMedia({audio: true, video: true},
+            // success
+            function(stream) {
+                mediaStream = stream;
+                console.log("Local media stream acquired successfully");
+                var elem = document.querySelector('.peerVideo video.local');
+                rtcninja.attachMediaStream(elem, stream);
+                ws = new WebSocket("ws://" + document.location.host + "/ws", "callroulette");
+                ws.onmessage = processWsMessage;
+                ws.onopen = function(event) {
+                    console.log('Connected!');
+                    status = 'connected';
+                };
+                ws.onerror = function(event) {
+                    console.log('WS Error');
+                    stop();
+                };
+            },
+            // error
+            function(error) {
+                console.log("Error getting local media stream: " + error);
+                stop();
+            });
     }
 
     function stop() {
@@ -116,9 +126,11 @@ function runCallRoulette() {
             return;
         }
         console.log('Stop');
-        ws.close();
-        ws = null;
         status = 'stopped';
+        if (ws !== null) {
+            ws.close();
+            ws = null;
+        }
         if (mediaStream !== null) {
             rtcninja.closeMediaStream(mediaStream);
             mediaStream = null;
@@ -132,37 +144,40 @@ function runCallRoulette() {
     function processWsMessage(event) {
         var msg = JSON.parse(event.data);
         if (msg.type === 'offer_request') {
-            initWithOfferRequest(// success
-                                function(sdp, stream) {
-                                    var reply = {type: 'offer',
-                                                 sdp: sdp};
-                                    ws.send(JSON.stringify(reply));
-                                },
-                                // failure
-                                function(error) {
-                                    stop();
-                                });
+            initWithOfferRequest(
+                // success
+                function(sdp, stream) {
+                    var reply = {type: 'offer', sdp: sdp};
+                    ws.send(JSON.stringify(reply));
+                },
+                // failure
+                function(error) {
+                    stop();
+                }
+            );
         } else if (msg.type == 'offer') {
-            initWithOffer(msg.sdp,
-                    // success
-                                function(sdp, stream) {
-                                    var reply = {type: 'answer',
-                                                 sdp: sdp};
-                                    ws.send(JSON.stringify(reply));
-                                },
-                                // failure
-                                function(error) {
-                                    stop();
-                                });
+            initWithOffer(
+                msg.sdp,
+                // success
+                function(sdp, stream) {
+                    var reply = {type: 'answer', sdp: sdp};
+                    ws.send(JSON.stringify(reply));
+                },
+                // failure
+                function(error) {
+                    stop();
+                }
+            );
         } else if (msg.type == 'answer') {
             var answer = {type: 'answer', sdp: msg.sdp};
-            connection.setRemoteDescription(new rtcninja.RTCSessionDescription(answer),
-                    // success
-                    function() {
-                    },
-                    // error
-                    function(error) {
-                    }
+            connection.setRemoteDescription(
+                new rtcninja.RTCSessionDescription(answer),
+                // success
+                function() {
+                },
+                // failure
+                function(error) {
+                }
             );
         } else {
             console.log('Invalid message type: ' + msg.type);
@@ -170,90 +185,78 @@ function runCallRoulette() {
         }
     }
 
-    function initWithOfferRequest(onSuccess, onFailure) {
+    function initConnection() {
         var pcConfig = {iceServers: []};
         var rtcConstraints = null;
-        var conn = new rtcninja.Connection(pcConfig, rtcConstraints);
-        connection = conn;
+        return new rtcninja.Connection(pcConfig, rtcConstraints);
+    }
 
+    function initWithOfferRequest(onSuccess, onFailure) {
+        if (connection !== null) {
+            throw new Error('Connection is already set')
+        }
+
+        connection = initConnection();
         connection.onaddstream = onAddStream;
+        connection.addStream(mediaStream);
 
-        rtcninja.getUserMedia({audio: true, video: true},
-                function(stream) {
-                    mediaStream = stream;
-                    console.log("Local media stream acquired successfully");
-                    var elem = document.querySelector('.peerVideo video.local');
-                    rtcninja.attachMediaStream(elem, stream);
-                    connection.addStream(stream);
-                    createLocalDescription('offer',
-                            connection,
-                            // onSuccess
-                            function(sdp, stream) {
-                                console.log('Got SDP!\n' + sdp);
-                                onSuccess(sdp);
-                            },
-                            // onFailure
-                            function(error) {
-                                console.log('Error getting SDP: ' + error);
-                                onFailure(error);
-                            }
-                            );
-                },
+        createLocalDescription(
+            'offer',
+            connection,
+            // constraints
+            null,
+            // onSuccess
+            function(sdp, stream) {
+                console.log('Got SDP!\n' + sdp);
+                onSuccess(sdp);
+            },
+            // onFailure
             function(error) {
-                console.log("Error getting local media stream: " + error);
+                console.log('Error getting SDP: ' + error);
                 onFailure(error);
-            });
-
+            }
+        );
     }
 
     function initWithOffer(sdp, onSuccess, onFailure) {
-        var pcConfig = {iceServers: []};
-        var rtcConstraints = null;
-        var conn = new rtcninja.Connection(pcConfig, rtcConstraints);
-        connection = conn;
+        if (connection !== null) {
+            throw new Error('Connection is already set')
+        }
 
+        connection = initConnection();
         connection.onaddstream = onAddStream;
+        connection.addStream(mediaStream);
 
-        rtcninja.getUserMedia({audio: true, video: true},
-                // success
-                function(stream) {
-                    mediaStream = stream;
-                    console.log("Local media stream acquired successfully");
-                    var elem = document.querySelector('.peerVideo video.local');
-                    rtcninja.attachMediaStream(elem, stream);
-                    connection.addStream(stream);
-                    var offer = {type: 'offer', sdp: sdp};
-                    connection.setRemoteDescription(new rtcninja.RTCSessionDescription(offer),
-                            // success
-                            function() {
-                                createLocalDescription('answer',
-                                        connection,
-                                        // onSuccess
-                                        function(sdp, stream) {
-                                            console.log('Got SDP!\n' + sdp);
-                                            onSuccess(sdp);
-                                        },
-                                        // onFailure
-                                        function(error) {
-                                            console.log('Error getting SDP: ' + error);
-                                            onFailure(error);
-                                        }
-                                );
-                            },
-                            // failure
-                            function(error) {
-                                console.log('Error setting remote description: ' + error);
-                                onFailure(error);
-                            }
-                    );
-                },
-                // error
-                function(error) {
-                    console.log("Error getting local media stream: " + error);
-                    onFailure(error);
-                }
-            );
-    } // initWithOffer
+        var offer = {type: 'offer', sdp: sdp};
+        connection.setRemoteDescription(
+            new rtcninja.RTCSessionDescription(offer),
+            // success
+            function() {
+                createLocalDescription(
+                    'answer',
+                    connection,
+                    // constraints
+                    null,
+                    // onSuccess
+                    function(sdp, stream) {
+                        console.log('Got SDP!\n' + sdp);
+                        onSuccess(sdp);
+                    },
+                    // onFailure
+                    function(error) {
+                        console.log('Error getting SDP: ' + error);
+                        onFailure(error);
+                    }
+                );
+            },
+            // failure
+            function(error) {
+                console.log('Error setting remote description: ' + error);
+                onFailure(error);
+            }
+        );
+
+    }
 
     function onAddStream(event, stream) {
         console.log('Remote stream added! ' + stream);
