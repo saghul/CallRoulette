@@ -206,8 +206,7 @@ function runCallRoulette() {
             // constraints
             null,
             // onSuccess
-            function(sdp, stream) {
-                console.log('Got SDP!\n' + sdp);
+            function(sdp) {
                 onSuccess(sdp);
             },
             // onFailure
@@ -238,8 +237,7 @@ function runCallRoulette() {
                     // constraints
                     null,
                     // onSuccess
-                    function(sdp, stream) {
-                        console.log('Got SDP!\n' + sdp);
+                    function(sdp) {
                         onSuccess(sdp);
                     },
                     // onFailure
