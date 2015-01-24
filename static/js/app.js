@@ -74,7 +74,7 @@ function runCallRoulette() {
 
     // TODO: create a Callroulette class
 
-    var mediaStream = null;
+    var localStream = null;
     var remoteStream = null;
     var ws = null;
     var connection = null;
@@ -100,7 +100,7 @@ function runCallRoulette() {
         rtcninja.getUserMedia({audio: true, video: true},
             // success
             function(stream) {
-                mediaStream = stream;
+                localStream = stream;
                 console.log("Local media stream acquired successfully");
                 var elem = document.querySelector('.peerVideo video.local');
                 rtcninja.attachMediaStream(elem, stream);
@@ -136,9 +136,9 @@ function runCallRoulette() {
             ws.close();
             ws = null;
         }
-        if (mediaStream !== null) {
-            rtcninja.closeMediaStream(mediaStream);
-            mediaStream = null;
+        if (localStream !== null) {
+            rtcninja.closeMediaStream(localStream);
+            localStream = null;
         }
         if (remoteStream !== null) {
             rtcninja.closeMediaStream(remoteStream);
@@ -208,7 +208,7 @@ function runCallRoulette() {
 
         connection = initConnection();
         connection.onaddstream = onAddStream;
-        connection.addStream(mediaStream);
+        connection.addStream(localStream);
 
         createLocalDescription(
             'offer',
@@ -234,7 +234,7 @@ function runCallRoulette() {
 
         connection = initConnection();
         connection.onaddstream = onAddStream;
-        connection.addStream(mediaStream);
+        connection.addStream(localStream);
 
         var offer = {type: 'offer', sdp: sdp};
         connection.setRemoteDescription(
