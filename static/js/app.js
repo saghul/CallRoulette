@@ -192,6 +192,7 @@ function runCallRoulette() {
 
     CallRoulette.prototype._initConnection = function() {
         var self = this;
+        // TODO: make these configurable
         var pcConfig = {iceServers: []};
         var rtcConstraints = null;
 
