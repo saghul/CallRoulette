@@ -20,6 +20,8 @@ BASE_DIR = os.path.dirname(__file__)
 STATIC_FILES = os.path.join(BASE_DIR, 'static')
 INDEX_FILE = os.path.join(BASE_DIR, 'index.html')
 
+READ_TIMEOUT = 5.0
+
 
 class LazyFileHandler:
     def __init__(self, filename, content_type):
@@ -150,7 +152,7 @@ class WebSocketHandler:
         # only way one can know if the connection was closed, so use if for the initial
         # reading
         try:
-            data = yield from asyncio.wait_for(initial_reading_task, 5.0)
+            data = yield from asyncio.wait_for(initial_reading_task, READ_TIMEOUT)
         except asyncio.TimeoutError:
             data = ''
         if not data:
@@ -166,7 +168,7 @@ class WebSocketHandler:
         peerB.write(json.dumps(data))
 
         # wait for answer
-        data = yield from peerB.read(timeout=5.0)
+        data = yield from peerB.read(timeout=READ_TIMEOUT)
         if not data:
             return _close_connections()
 
