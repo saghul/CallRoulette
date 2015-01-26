@@ -116,13 +116,16 @@ class WebSocketHandler:
         conn = Connection(ws)
         if self.waiter is None:
             self.waiter = asyncio.Future()
-            other = yield from self.waiter
-            if conn.closed:
-                # the user got bored and stopped waiting, restart
-                other.close()
+            fs = [conn.read(), self.waiter]
+            done, pending = yield from asyncio.wait(fs, return_when=asyncio.FIRST_COMPLETED)
+            if self.waiter not in done:
+                # the connection was most likely closed
+                self.waiter = None
                 return ws
+            other = self.waiter.result()
             self.waiter = None
-            asyncio.async(self.run_roulette(conn, other))
+            reading_task = pending.pop()
+            asyncio.async(self.run_roulette(conn, other, reading_task))
         else:
             self.waiter.set_result(conn)
 
@@ -131,24 +134,32 @@ class WebSocketHandler:
         return ws
 
     @asyncio.coroutine
-    def run_roulette(self, peerA, peerB):
+    def run_roulette(self, peerA, peerB, initial_reading_task):
         log.info('Running roulette: %s, %s' % (peerA, peerB))
+
+        def _close_connections():
+            peerA.close()
+            peerB.close()
+
         # request offer
         data = dict(type='offer_request');
         peerA.write(json.dumps(data))
 
         # get offer
-        data = yield from peerA.read(timeout=5.0)
+        # I cannot seem to cancel the reading task that was started before, which is the
+        # only way one can know if the connection was closed, so use if for the initial
+        # reading
+        try:
+            data = yield from asyncio.wait_for(initial_reading_task, 5.0)
+        except asyncio.TimeoutError:
+            data = ''
         if not data:
-            peerA.close()
-            peerB.close()
-            return
+            return _close_connections()
+
         data = json.loads(data)
         if data.get('type') != 'offer' or not data.get('sdp'):
             log.warning('Invalid offer received')
-            peerA.close()
-            peerB.close()
-            return
+            return _close_connections()
 
         # send offer
         data = dict(type='offer', sdp=data['sdp']);
@@ -157,15 +168,12 @@ class WebSocketHandler:
         # wait for answer
         data = yield from peerB.read(timeout=5.0)
         if not data:
-            peerA.close()
-            peerB.close()
-            return
+            return _close_connections()
+
         data = json.loads(data)
         if data.get('type') != 'answer' or not data.get('sdp'):
             log.warning('Invalid answer received')
-            peerA.close()
-            peerB.close()
-            return
+            return _close_connections()
 
         # dispatch answer
         data = dict(type='answer', sdp=data['sdp']);
@@ -176,8 +184,7 @@ class WebSocketHandler:
         yield from asyncio.wait(fs, return_when=asyncio.FIRST_COMPLETED)
 
         # close connections
-        peerA.close()
-        peerB.close()
+        return _close_connections()
 
 
 @asyncio.coroutine
