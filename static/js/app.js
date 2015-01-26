@@ -109,15 +109,15 @@ function runCallRoulette() {
 
     CallRoulette.prototype._setState = function(state) {
         var self = this;
-        var prev_state = self._state;
+        var prevState = self._state;
 
-        if (prev_state === state) {
+        if (prevState === state) {
             return;
         }
 
         self._state = state;
         if (typeof self.onstatechanged === 'function') {
-            window.setTimeout(self.onstatechanged, 0, prev_state, state);
+            window.setTimeout(self.onstatechanged, 0, prevState, state);
         }
     }
 
