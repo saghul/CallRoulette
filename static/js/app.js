@@ -27,6 +27,8 @@ function runCallRoulette() {
 
         this._conn = null;
         this._ws = null;
+
+        this.onstatechanged = null;
     }
 
     // Public API
@@ -41,7 +43,7 @@ function runCallRoulette() {
         var self = this;
 
         console.log('Start');
-        self._state = 'starting';
+        self._setState('starting');
 
         rtcninja.getUserMedia({audio: true, video: true},
             // success
@@ -58,7 +60,7 @@ function runCallRoulette() {
                 };
                 self._ws.onopen = function(event) {
                     console.log('WS connected');
-                    self._state = 'started';
+                    self._setState('started');
                 };
                 self._ws.onclose = function(event) {
                     console.log('WS closedi');
@@ -80,7 +82,7 @@ function runCallRoulette() {
         }
 
         console.log('Stop');
-        self._state = 'stopped';
+        self._setState('stopped');
 
         if (self._ws !== null) {
             self._ws.close();
@@ -104,6 +106,20 @@ function runCallRoulette() {
     }
 
     // Private API
+
+    CallRoulette.prototype._setState = function(state) {
+        var self = this;
+        var prev_state = self._state;
+
+        if (prev_state === state) {
+            return;
+        }
+
+        self._state = state;
+        if (typeof self.onstatechanged === 'function') {
+            window.setTimeout(self.onstatechanged, 0, prev_state, state);
+        }
+    }
 
     CallRoulette.prototype._processMessages = function(data) {
         var self = this;
@@ -163,7 +179,6 @@ function runCallRoulette() {
                 new rtcninja.RTCSessionDescription(answer),
                 // success
                 function() {
-                    self._state = 'connected';
                 },
                 // failure
                 function(error) {
@@ -197,10 +212,10 @@ function runCallRoulette() {
                                     }
                                     self._remoteStream = stream;
                                     console.log('Remote stream added');
-                                    //var elem = document.querySelector('.peerVideo video.remote');
                                     if (self._views.remote !== null) {
                                         rtcninja.attachMediaStream(self._views.remote, stream);
                                     }
+                                    self._setState('established');
                                 };
 
     }
@@ -269,6 +284,7 @@ function runCallRoulette() {
     var localView = document.querySelector('.peerVideo video.local');
     var remoteView = document.querySelector('.peerVideo video.remote');
     var callRoulette = new CallRoulette({local: localView, remote: remoteView});
+    callRoulette.onstatechanged = onStateChanged;
 
     var startStopButton = document.querySelector('#startStopButton');
     startStopButton.classList.add('enabled');
@@ -282,6 +298,26 @@ function runCallRoulette() {
             callRoulette.start();
         } else {
             callRoulette.stop();
+        }
+    }
+
+    function onStateChanged(prevState, curState) {
+        console.log('State changed: ' + prevState + ' -> ' + curState);
+        switch (curState) {
+            case 'starting':
+	        startStopButton.textContent = 'Connecting...';
+                break;
+            case 'started':
+	        startStopButton.textContent = 'Connected, waiting...';
+                break;
+            case 'established':
+	        startStopButton.textContent = 'Established';
+                break;
+            case 'stopped':
+	        startStopButton.textContent = 'Start';
+                break;
+            default:
+                break;
         }
     }
 
