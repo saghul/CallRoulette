@@ -46,7 +46,6 @@ function runCallRoulette() {
             function(stream) {
                 self._localStream = stream;
                 console.log("Local media stream acquired successfully");
-                //var elem = document.querySelector('.peerVideo video.local');
                 if (self._views.local !== null) {
                     rtcninja.attachMediaStream(self._views.local, stream);
                 }
