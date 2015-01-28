@@ -8,13 +8,10 @@ import signal
 import sys
 
 from aiohttp import web
-from aiohttp.log import web_logger, ws_logger
+
 
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger('CallRoulette')
-web_logger.setLevel(logging.DEBUG)
-ws_logger.setLevel(logging.DEBUG)
-
 
 BASE_DIR = os.path.dirname(__file__)
 STATIC_FILES = os.path.join(BASE_DIR, 'static')
@@ -36,7 +33,7 @@ class LazyFileHandler:
                 with open(self.filename, 'rb') as f:
                     self.data = f.read()
             except IOError:
-                web_logger.warning('Could not load %s file' % self.filename)
+                log.warning('Could not load %s file' % self.filename)
                 raise web.HTTPNotFound()
         return web.Response(body=self.data, content_type=self.content_type)
 
@@ -58,10 +55,10 @@ class StaticFilesHandler:
                     content_type, encoding = mimetypes.guess_type(full_path, strict=False)
                     data = f.read()
             except IOError:
-                web_logger.warning('Could not open %s file' % path)
+                log.warning('Could not open %s file' % path)
                 raise web.HTTPNotFound()
             self.cache[path] = data, content_type
-            web_logger.debug('Loaded file %s (%s)' % (path, content_type))
+            log.debug('Loaded file %s (%s)' % (path, content_type))
         return web.Response(body=data, content_type=content_type)
 
 
