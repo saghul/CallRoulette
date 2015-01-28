@@ -66,7 +66,6 @@ class StaticFilesHandler:
 
 
 class Connection:
-
     def __init__(self, ws):
         self.ws = ws
         self._closed = False
