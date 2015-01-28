@@ -1,9 +1,5 @@
 
 function runCallRoulette() {
-    if (!rtcninja.called) {
-        rtcninja();
-    }
-
     if (!rtcninja.hasWebRTC()) {
         console.log("WebRTC is NOT supported!");
 	alertify.error('Your browser does not support WebRTC');
