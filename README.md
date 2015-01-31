@@ -15,6 +15,10 @@ The protocol for communicating clients is dead simple: a WebSocket connection is
 of messages: 'offre_request', 'offer' and 'answer'. There is no message to end the communication,
 this is intentional, in order to keep it as simple as possible.
 
+SIP: Saghul's Imbecile Protocol
+
+![SIP](https://raw.githubusercontent.com/saghul/CallRoulette/master/sip.jpg)
+
 
 ## Author
 
