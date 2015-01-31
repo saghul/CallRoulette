@@ -194,7 +194,7 @@ def init(loop):
 
     handler = app.make_handler()
     server = yield from loop.create_server(handler, '0.0.0.0', 8080)
-    print("Server started at http://0.0.0.0:8080")
+    print("Server started at 0.0.0.0:8080")
     return server, handler
 
 
