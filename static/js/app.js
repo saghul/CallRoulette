@@ -189,7 +189,6 @@ function runCallRoulette() {
         var self = this;
         // TODO: make these configurable
         var pcConfig = {iceServers: []};
-        var rtcConstraints = null;
 
         if (self._conn !== null) {
             throw new Error('Connection already exists');
@@ -199,7 +198,7 @@ function runCallRoulette() {
             throw new Error('Local stream is not set');
         }
 
-        self._conn = new rtcninja.Connection(pcConfig, rtcConstraints);
+        self._conn = new rtcninja.RTCPeerConnection(pcConfig);
         self._conn.addStream(self._localStream);
         self._conn.onaddstream = function(event, stream) {
                                     if (self._remoteStream !== null) {
