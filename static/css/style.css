@@ -53,18 +53,6 @@ div.videos > div.peerVideo > object.remote {
 	background-color: #444;
 }
 
-div.videos > div.peerVideo > video.local,
-div.videos > div.peerVideo > object.local {
-	position: absolute;
-	bottom: 8px;
-	left: 8px;
-	width: 160px;
-	height: 120px;
-	background-color: #222;
-	border: 1px solid #bbb;
-}
-
-
 /* startStopButton */
 
 div#startStopButton {

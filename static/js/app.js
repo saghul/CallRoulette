@@ -11,10 +11,12 @@ function runCallRoulette() {
 
     // CallRoulette!
 
-    function CallRoulette(views) {
-        this._views = views || {};
-        this._views.local = this._views.local || null;
-        this._views.remote = this._views.remote || null;
+    function CallRoulette(view) {
+        if (!view) {
+            throw Error('invalid view element!');
+        }
+
+        this._view = view;
 
         this._localStream = null;
         this._remoteStream = null;
@@ -46,9 +48,7 @@ function runCallRoulette() {
             function(stream) {
                 self._localStream = stream;
                 console.log("Local media stream acquired successfully");
-                if (self._views.local !== null) {
-                    rtcninja.attachMediaStream(self._views.local, stream);
-                }
+                rtcninja.attachMediaStream(self._view, stream);
                 self._ws = new WebSocket("ws://" + document.location.host + "/ws", "callroulette");
                 self._ws.onmessage = function(event) {
                     self._processMessages(event.data);
@@ -213,9 +213,7 @@ function runCallRoulette() {
                                     }
                                     self._remoteStream = stream;
                                     console.log('Remote stream added');
-                                    if (self._views.remote !== null) {
-                                        rtcninja.attachMediaStream(self._views.remote, stream);
-                                    }
+                                    rtcninja.attachMediaStream(self._view, stream);
                                     self._setState('established');
                                 };
 
@@ -282,9 +280,8 @@ function runCallRoulette() {
         }
     }
 
-    var localView = document.querySelector('.peerVideo video.local');
-    var remoteView = document.querySelector('.peerVideo video.remote');
-    var callRoulette = new CallRoulette({local: localView, remote: remoteView});
+    var videoView = document.querySelector('.peerVideo video.remote');
+    var callRoulette = new CallRoulette(videoView);
     callRoulette.onstatechanged = onStateChanged;
 
     var startStopButton = document.querySelector('#startStopButton');
