@@ -120,14 +120,20 @@ function runCallRoulette() {
         var self = this;
         var msg = JSON.parse(data);
 
-        if (msg.type === 'offer_request') {
-            console.log('self: ' + self);
+        if (msg.yo !== 'yo') {
+            console.log('Invalid message: ' + data);
+            self.stop();
+            return;
+        }
+
+        if (!msg.jsep) {
+            console.log('Got offer request');
             self._initConnection();
             self._createLocalDescription(
                 'offer',
                 // onSuccess
                 function(sdp) {
-                    var reply = {type: 'offer', sdp: sdp};
+                    var reply = {yo: 'yo', jsep: {type: 'offer', sdp: sdp}};
                     self._ws.send(JSON.stringify(reply));
                 },
                 // onFailure
@@ -136,18 +142,18 @@ function runCallRoulette() {
                     self.stop()
                 }
             );
-        } else if (msg.type == 'offer') {
-            var offer = {type: 'offer', sdp: msg.sdp};
+        } else if (msg.jsep.type == 'offer') {
+            console.log('Got offer');
             self._initConnection();
             self._conn.setRemoteDescription(
-                new rtcninja.RTCSessionDescription(offer),
+                new rtcninja.RTCSessionDescription(msg.jsep),
                 // success
                 function() {
                     self._createLocalDescription(
                         'answer',
                         // onSuccess
                         function(sdp) {
-                            var reply = {type: 'answer', sdp: sdp};
+                            var reply = {yo: 'yo', jsep: {type: 'answer', sdp: sdp}};
                             self._ws.send(JSON.stringify(reply));
                         },
                         // onFailure
@@ -163,15 +169,15 @@ function runCallRoulette() {
                     onFailure(error);
                 }
             );
-        } else if (msg.type == 'answer') {
-            var answer = {type: 'answer', sdp: msg.sdp};
+        } else if (msg.jsep.type == 'answer') {
+            console.log('Got answer');
 
             if (self._conn === null) {
                 throw new Error('Connection does not exist yet');
             }
 
             self._conn.setRemoteDescription(
-                new rtcninja.RTCSessionDescription(answer),
+                new rtcninja.RTCSessionDescription(msg.jsep),
                 // success
                 function() {
                 },
@@ -181,7 +187,7 @@ function runCallRoulette() {
                 }
             );
         } else {
-            console.log('Invalid message type: ' + msg.type);
+            console.log('Invalid message: ' + data);
         }
     }
 

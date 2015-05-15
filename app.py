@@ -8,6 +8,8 @@ import signal
 import sys
 
 from aiohttp import errors, web
+from jsonmodels import models, fields
+from jsonmodels.errors import ValidationError
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -60,6 +62,27 @@ class StaticFilesHandler:
             self.cache[path] = data, content_type
             log.debug('Loaded file %s (%s)' % (path, content_type))
         return web.Response(body=data, content_type=content_type)
+
+
+class StringChoiceField(fields.StringField):
+    def __init__(self, choices=None, *args, **kw):
+        self.choices = choices or []
+        super(StringChoiceField, self).__init__(*args, **kw)
+
+    def validate(self, value):
+        if value not in self.choices:
+            raise ValidationError('invalid choice value')
+        super(StringChoiceField, self).validate(value)
+
+
+class Jsep(models.Base):
+    type = StringChoiceField(choices=['offer', 'answer'], required=True)
+    sdp = fields.StringField(required=True)
+
+
+class YoPayload(models.Base):
+    yo = fields.StringField(required=True)
+    jsep = fields.EmbeddedField(Jsep)
 
 
 class Connection:
@@ -155,9 +178,19 @@ class WebSocketHandler:
         def _close_connections():
             yield from asyncio.wait([peerA.close(), peerB.close()], return_when=asyncio.ALL_COMPLETED)
 
+        def parse(data):
+            try:
+                data = json.loads(data)
+                payload = YoPayload(**data)
+                payload.validate()
+            except Exception as e:
+                log.warning('Error parsing payload: %s' % e)
+                return None
+            return payload
+
         # request offer
-        data = dict(type='offer_request');
-        peerA.write(json.dumps(data))
+        offer_request = YoPayload(yo='yo')
+        peerA.write(json.dumps(offer_request.to_struct()))
 
         # get offer
         data = yield from peerA.read(timeout=READ_TIMEOUT)
@@ -165,15 +198,14 @@ class WebSocketHandler:
             yield from _close_connections()
             return
 
-        data = json.loads(data)
-        if data.get('type') != 'offer' or not data.get('sdp'):
+        offer = parse(data)
+        if offer is None or offer.jsep.type != 'offer':
             log.warning('Invalid offer received')
             yield from _close_connections()
             return
 
         # send offer
-        data = dict(type='offer', sdp=data['sdp']);
-        peerB.write(json.dumps(data))
+        peerB.write(json.dumps(offer.to_struct()))
 
         # wait for answer
         data = yield from peerB.read(timeout=READ_TIMEOUT)
@@ -181,15 +213,14 @@ class WebSocketHandler:
             yield from _close_connections()
             return
 
-        data = json.loads(data)
-        if data.get('type') != 'answer' or not data.get('sdp'):
+        answer = parse(data)
+        if answer is None or answer.jsep.type != 'answer':
             log.warning('Invalid answer received')
             yield from _close_connections()
             return
 
         # dispatch answer
-        data = dict(type='answer', sdp=data['sdp']);
-        peerA.write(json.dumps(data))
+        peerA.write(json.dumps(answer.to_struct()))
 
         # wait for end
         fs = [peerA.read(), peerB.read()]
