@@ -1,1 +1,1 @@
-aiohttp>=0.14.2
+aiohttp>=0.15.3

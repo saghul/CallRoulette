@@ -7,7 +7,7 @@ import os
 import signal
 import sys
 
-from aiohttp import web
+from aiohttp import errors, web
 
 
 logging.basicConfig(level=logging.DEBUG)
@@ -66,6 +66,7 @@ class Connection:
     def __init__(self, ws):
         self.ws = ws
         self._closed = False
+        self._closed_fut = asyncio.Future(loop=ws._loop)
 
     @property
     def closed(self):
@@ -74,32 +75,40 @@ class Connection:
     @asyncio.coroutine
     def read(self, timeout=None):
         try:
-            data = yield from asyncio.wait_for(self.ws.receive_str(), timeout)
-            return data
+            msg = yield from asyncio.wait_for(self.ws.receive(), timeout)
         except asyncio.TimeoutError:
             log.warning('Timeout reading from socket')
-            self.close()
-        except web.WSClientDisconnectedError as e:
-            log.info('WS client disconnected: %d:%s' % (e.code, e.message))
-            self.close()
-        return ''
+            yield from self.close()
+            return ''
+        if msg.tp == web.MsgType.text:
+            return msg.data
+        elif msg.tp == web.MsgType.close:
+            log.info('WS client disconnected: %d (%s)' % (self.ws.close_code, self.ws.exception()))
+            yield from self.close()
+            return ''
+        else:
+            log.info('Unexpected message type "%s", closing connection' % msg.tp)
+            yield from self.close()
+            return ''
 
     def write(self, data):
         self.ws.send_str(data)
 
+    @asyncio.coroutine
     def close(self):
         if self._closed:
             return
-        if not self.ws.closing:
-            self.ws.close()
+        if not self.ws.closed:
+            try:
+                yield from self.ws.close()
+            except Exception:
+                pass
         self._closed = True
+        self._closed_fut.set_result(None)
 
     @asyncio.coroutine
     def wait_closed(self):
-        try:
-            yield from self.ws.wait_closed()
-        except web.WSClientDisconnectedError:
-            pass
+        yield from self._closed_fut
 
 
 class WebSocketHandler:
@@ -122,6 +131,7 @@ class WebSocketHandler:
                 return ws
             other = self.waiter.result()
             self.waiter = None
+            # TODO: try to cancel this task now
             reading_task = pending.pop()
             asyncio.async(self.run_roulette(conn, other, reading_task))
         else:
@@ -135,9 +145,9 @@ class WebSocketHandler:
     def run_roulette(self, peerA, peerB, initial_reading_task):
         log.info('Running roulette: %s, %s' % (peerA, peerB))
 
+        @asyncio.coroutine
         def _close_connections():
-            peerA.close()
-            peerB.close()
+            yield from asyncio.wait([peerA.close(), peerB.close()], return_when=asyncio.ALL_COMPLETED)
 
         # request offer
         data = dict(type='offer_request');
@@ -152,12 +162,14 @@ class WebSocketHandler:
         except asyncio.TimeoutError:
             data = ''
         if not data:
-            return _close_connections()
+            yield from _close_connections()
+            return
 
         data = json.loads(data)
         if data.get('type') != 'offer' or not data.get('sdp'):
             log.warning('Invalid offer received')
-            return _close_connections()
+            yield from _close_connections()
+            return
 
         # send offer
         data = dict(type='offer', sdp=data['sdp']);
@@ -166,12 +178,14 @@ class WebSocketHandler:
         # wait for answer
         data = yield from peerB.read(timeout=READ_TIMEOUT)
         if not data:
-            return _close_connections()
+            yield from _close_connections()
+            return
 
         data = json.loads(data)
         if data.get('type') != 'answer' or not data.get('sdp'):
             log.warning('Invalid answer received')
-            return _close_connections()
+            yield from _close_connections()
+            return
 
         # dispatch answer
         data = dict(type='answer', sdp=data['sdp']);
@@ -182,7 +196,7 @@ class WebSocketHandler:
         yield from asyncio.wait(fs, return_when=asyncio.FIRST_COMPLETED)
 
         # close connections
-        return _close_connections()
+        yield from _close_connections()
 
 
 @asyncio.coroutine
