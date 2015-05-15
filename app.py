@@ -160,8 +160,7 @@ class WebSocketHandler:
         peerA.write(json.dumps(data))
 
         # get offer
-        try:
-            data = yield from peerA.read(timeout=READ_TIMEOUT)
+        data = yield from peerA.read(timeout=READ_TIMEOUT)
         if not data:
             yield from _close_connections()
             return
