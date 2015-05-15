@@ -126,7 +126,7 @@ class WebSocketHandler:
 
         conn = Connection(ws)
         if self.waiter is None:
-            self.waiter = asyncio.Future()
+            self.waiter = asyncio.Future(loop=ws._loop)
             fs = [conn.read(), self.waiter]
             done, pending = yield from asyncio.wait(fs, return_when=asyncio.FIRST_COMPLETED)
             if self.waiter not in done:
