@@ -162,8 +162,6 @@ class WebSocketHandler:
         # get offer
         try:
             data = yield from peerA.read(timeout=READ_TIMEOUT)
-        except asyncio.TimeoutError:
-            data = ''
         if not data:
             yield from _close_connections()
             return
