@@ -76,8 +76,6 @@ class Connection:
     def read(self, timeout=None):
         try:
             msg = yield from asyncio.wait_for(self.ws.receive(), timeout)
-        except asyncio.CancelledError:
-            return
         except asyncio.TimeoutError:
             log.warning('Timeout reading from socket')
             yield from self.close()
