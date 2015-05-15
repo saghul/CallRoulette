@@ -86,6 +86,10 @@ class Connection:
             log.info('WS client disconnected: %d (%s)' % (self.ws.close_code, self.ws.exception()))
             yield from self.close()
             return ''
+        elif msg.tp == web.MsgType.error:
+            log.info('WS client error: %r' % msg.data)
+            yield from self.close()
+            return ''
         else:
             log.info('Unexpected message type "%s", closing connection' % msg.tp)
             yield from self.close()
