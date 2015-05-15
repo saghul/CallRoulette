@@ -76,6 +76,8 @@ class Connection:
     def read(self, timeout=None):
         try:
             msg = yield from asyncio.wait_for(self.ws.receive(), timeout)
+        except asyncio.CancelledError:
+            return
         except asyncio.TimeoutError:
             log.warning('Timeout reading from socket')
             yield from self.close()
@@ -135,9 +137,11 @@ class WebSocketHandler:
                 return ws
             other = self.waiter.result()
             self.waiter = None
-            # TODO: try to cancel this task now
             reading_task = pending.pop()
-            asyncio.async(self.run_roulette(conn, other, reading_task))
+            reading_task.cancel()
+            # TODO: super-ugly workaround for issue #363
+            ws._reader._waiter = None
+            asyncio.async(self.run_roulette(conn, other))
         else:
             self.waiter.set_result(conn)
 
@@ -146,7 +150,7 @@ class WebSocketHandler:
         return ws
 
     @asyncio.coroutine
-    def run_roulette(self, peerA, peerB, initial_reading_task):
+    def run_roulette(self, peerA, peerB):
         log.info('Running roulette: %s, %s' % (peerA, peerB))
 
         @asyncio.coroutine
@@ -158,11 +162,8 @@ class WebSocketHandler:
         peerA.write(json.dumps(data))
 
         # get offer
-        # I cannot seem to cancel the reading task that was started before, which is the
-        # only way one can know if the connection was closed, so use if for the initial
-        # reading
         try:
-            data = yield from asyncio.wait_for(initial_reading_task, READ_TIMEOUT)
+            data = yield from peerA.read(timeout=READ_TIMEOUT)
         except asyncio.TimeoutError:
             data = ''
         if not data:
