@@ -99,6 +99,10 @@ class Connection:
     def read(self, timeout=None):
         try:
             msg = yield from asyncio.wait_for(self.ws.receive(), timeout)
+        except asyncio.CancelledError:
+            # TODO: super-ugly workaround for issue #363
+            self.ws._reader._waiter = None
+            raise
         except asyncio.TimeoutError:
             log.warning('Timeout reading from socket')
             yield from self.close()
@@ -160,8 +164,6 @@ class WebSocketHandler:
             self.waiter = None
             reading_task = pending.pop()
             reading_task.cancel()
-            # TODO: super-ugly workaround for issue #363
-            ws._reader._waiter = None
             asyncio.async(self.run_roulette(conn, other))
         else:
             self.waiter.set_result(conn)
