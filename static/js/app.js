@@ -207,8 +207,8 @@ function runCallRoulette() {
 
     CallRoulette.prototype._initConnection = function() {
         var self = this;
-        // TODO: make these configurable
-        var pcConfig = {iceServers: []};
+        var pcConfig = {iceServers: [{"url": 'stun:stun.l.google.com:19302'},
+                                     {"url": "stun:stun.services.mozilla.com"}]};
 
         if (self._conn !== null) {
             throw new Error('Connection already exists');
