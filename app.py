@@ -80,9 +80,16 @@ class Jsep(models.Base):
     sdp = fields.StringField(required=True)
 
 
+class Candidate(models.Base):
+    candidate = fields.StringField(required=True)
+    sdpMid = fields.StringField(required=True)
+    sdpMLineIndex = fields.IntField(required=True)
+
+
 class YoPayload(models.Base):
     yo = fields.StringField(required=True)
     jsep = fields.EmbeddedField(Jsep)
+    candidate = fields.EmbeddedField(Candidate)
 
 
 class Connection:
@@ -201,7 +208,7 @@ class WebSocketHandler:
             return
 
         offer = parse(data)
-        if offer is None or offer.jsep.type != 'offer':
+        if offer is None or offer.jsep is None or offer.jsep.type != 'offer':
             log.warning('Invalid offer received')
             yield from _close_connections()
             return
@@ -216,7 +223,7 @@ class WebSocketHandler:
             return
 
         answer = parse(data)
-        if answer is None or answer.jsep.type != 'answer':
+        if answer is None or answer.jsep is None or answer.jsep.type != 'answer':
             log.warning('Invalid answer received')
             yield from _close_connections()
             return
@@ -225,8 +232,32 @@ class WebSocketHandler:
         peerA.write(json.dumps(answer.to_struct()))
 
         # wait for end
-        fs = [peerA.read(), peerB.read()]
-        yield from asyncio.wait(fs, return_when=asyncio.FIRST_COMPLETED)
+        while True:
+            need_close = False
+            peer_a_read = asyncio.async(peerA.read())
+            peer_a_read.peer = peerA
+            peer_a_read.other_peer = peerB
+
+            peer_b_read = asyncio.async(peerB.read())
+            peer_b_read.peer = peerB
+            peer_b_read.other_peer = peerA
+
+            done, pending = yield from asyncio.wait([peer_a_read, peer_b_read], return_when=asyncio.FIRST_COMPLETED)
+            for task in pending:
+                task.cancel()
+            for task in done:
+                data = task.result()
+                if not data:
+                    break
+                # all we can get at this point is trickled ICE candidates
+                candidate = parse(data)
+                if candidate is None or candidate.candidate is None:
+                    log.warning('Invalid candidate received!')
+                    break
+                task.other_peer.write(json.dumps(candidate.to_struct()))
+            else:
+                continue
+            break
 
         # close connections
         yield from _close_connections()

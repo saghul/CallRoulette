@@ -126,7 +126,7 @@ function runCallRoulette() {
             return;
         }
 
-        if (!msg.jsep) {
+        if (!msg.jsep && !msg.candidate) {
             console.log('Got offer request');
             self._initConnection();
             self._createLocalDescription(
@@ -142,7 +142,7 @@ function runCallRoulette() {
                     self.stop()
                 }
             );
-        } else if (msg.jsep.type == 'offer') {
+        } else if (msg.jsep && msg.jsep.type == 'offer') {
             console.log('Got offer');
             self._initConnection();
             self._conn.setRemoteDescription(
@@ -169,7 +169,7 @@ function runCallRoulette() {
                     onFailure(error);
                 }
             );
-        } else if (msg.jsep.type == 'answer') {
+        } else if (msg.jsep && msg.jsep.type == 'answer') {
             console.log('Got answer');
 
             if (self._conn === null) {
@@ -186,6 +186,20 @@ function runCallRoulette() {
                     self.stop();
                 }
             );
+        } else if (msg.candidate) {
+            console.log('Got trickled ICE candidate');
+
+            if (self._conn === null) {
+                throw new Error('Connection does not exist yet');
+            }
+
+            self._conn.addIceCandidate(new rtcninja.RTCIceCandidate(msg.candidate),
+                                       // success
+                                       function () {},
+                                       // failure
+                                       function (error) {
+                                           console.log('Error adding remote ICE candidate: ' + error);
+                                       });
         } else {
             console.log('Invalid message: ' + data);
         }
@@ -216,7 +230,13 @@ function runCallRoulette() {
                                     rtcninja.attachMediaStream(self._view, stream);
                                     self._setState('established');
                                 };
-
+        self._conn.onicecandidate =
+            function(event, candidate) {
+                if (candidate) {
+                    var message = {yo: 'yo', candidate: candidate};
+                    self._ws.send(JSON.stringify(message));
+                }
+            };
     }
 
     CallRoulette.prototype._createLocalDescription = function(type, onSuccess, onFailure) {
@@ -250,24 +270,12 @@ function runCallRoulette() {
 
         // createAnswer or createOffer succeeded
         function createSucceeded(desc) {
-            self._conn.onicecandidate = function(event, candidate) {
-                if (!candidate) {
-                    self._conn.onicecandidate = null;
-                    if (onSuccess) {
-                        onSuccess(self._conn.localDescription.sdp);
-                        onSuccess = null;
-                    }
-                }
-            };
             self._conn.setLocalDescription(
                 desc,
                 // success
                 function() {
-                    if (self._conn.iceGatheringState === 'complete') {
-                        if (onSuccess) {
-                            onSuccess(self._conn.localDescription.sdp);
-                            onSuccess = null;
-                        }
+                    if (onSuccess) {
+                        onSuccess(self._conn.localDescription.sdp);
                     }
                 },
                 // failure
