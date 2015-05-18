@@ -155,7 +155,7 @@ class WebSocketHandler:
 
     @asyncio.coroutine
     def __call__(self, request):
-        ws = web.WebSocketResponse(protocols=('callroulette',))
+        ws = web.WebSocketResponse(protocols=('callroulette-v2',))
         ws.start(request)
 
         conn = Connection(ws)
