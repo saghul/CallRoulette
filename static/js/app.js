@@ -280,7 +280,7 @@ function runCallRoulette() {
         }
     }
 
-    var videoView = document.querySelector('.peerVideo video.remote');
+    var videoView = document.querySelector('.videoView video');
     var callRoulette = new CallRoulette(videoView);
     callRoulette.onstatechanged = onStateChanged;
 

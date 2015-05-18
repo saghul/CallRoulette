@@ -25,9 +25,9 @@ div.header {
 }
 
 
-/* videos */
+/* videoContainer */
 
-div.videos {
+div.videoContainer {
 	margin: auto;
 	display: flex;
 	display: -webkit-flex;
@@ -37,19 +37,14 @@ div.videos {
 	-webkit-justify-content: center;
 }
 
-div.videos > div.peerVideo {
+div.videoContainer > div.videoView {
 	position: relative;
 }
 
-div.videos > div.peerVideo > video,
-div.videos > div.peerVideo > object {
+div.videoContainer > div.videoView > video {
 	display: block;
-}
-
-div.videos > div.peerVideo > video.remote,
-div.videos > div.peerVideo > object.remote {
-	height: 640px;
-	height: 480px;
+	height: 800px;
+	height: 600px;
 	background-color: #444;
 }
 
