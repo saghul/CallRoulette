@@ -301,18 +301,23 @@ function runCallRoulette() {
 
     function onStateChanged(prevState, curState) {
         console.log('State changed: ' + prevState + ' -> ' + curState);
+        if (curState == 'stopped') {
+	    startStopButton.textContent = 'Start';
+        } else {
+	    startStopButton.textContent = 'Stop';
+        }
         switch (curState) {
             case 'starting':
-	        startStopButton.textContent = 'Connecting...';
+                alertify.message('Connecting...');
                 break;
             case 'started':
-	        startStopButton.textContent = 'Connected, waiting...';
+                alertify.message('Connected, waiting...');
                 break;
             case 'established':
-	        startStopButton.textContent = 'Established';
+                alertify.message('Established');
                 break;
             case 'stopped':
-	        startStopButton.textContent = 'Start';
+                alertify.message('Stopped');
                 break;
             default:
                 break;
