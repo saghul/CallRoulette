@@ -46,7 +46,7 @@ MIT (check the LICENSE file)
 
 ## Thanks
 
-- Iñaki Baz Castillo <ibc@aliax.net>: for [rtcninja](https://github.com/eface2face/rtcninja.js)
+- [Iñaki Baz Castillo](https://github.com/ibc) for [rtcninja](https://github.com/eface2face/rtcninja.js)
   and helping me with JavaScript.
 - The aiohttp authors: for making it really easy to mix HTTP servers with WebSockets in
   asyncio.
