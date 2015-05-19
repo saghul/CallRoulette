@@ -20,7 +20,7 @@ The protocol for communicating clients is dead simple: a WebSocket connection is
 of messages: 'offre_request', 'offer' and 'answer'. There is no message to end the communication,
 this is intentional, in order to keep it as simple as possible.
 
-SIP: Saghul's Imbecile Protocol
+(not really) SIP: Saghul's Imbecile Protocol
 
 ![SIP](https://raw.githubusercontent.com/saghul/CallRoulette/master/sip.jpg)
 
@@ -28,6 +28,10 @@ SIP: Saghul's Imbecile Protocol
 
 The yo protocol is an improvement over (not really) SIP used in version 1. It maintains the original
 spirit of simplicity (only 4 message types), but it uses [Trickle ICE](https://webrtchacks.com/trickle-ice/).
+
+The yo protocol
+
+![yo](https://raw.githubusercontent.com/saghul/CallRoulette/master/yo.jpg)
 
 
 ## Author
