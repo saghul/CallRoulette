@@ -67,12 +67,12 @@ class StaticFilesHandler:
 class StringChoiceField(fields.StringField):
     def __init__(self, choices=None, *args, **kw):
         self.choices = choices or []
-        super(StringChoiceField, self).__init__(*args, **kw)
+        super().__init__(*args, **kw)
 
     def validate(self, value):
         if value not in self.choices:
             raise ValidationError('invalid choice value')
-        super(StringChoiceField, self).validate(value)
+        super().validate(value)
 
 
 class Jsep(models.Base):
