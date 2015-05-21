@@ -233,13 +233,10 @@ class WebSocketHandler:
 
         # wait for end
         while True:
-            need_close = False
             peer_a_read = asyncio.async(peerA.read())
-            peer_a_read.peer = peerA
             peer_a_read.other_peer = peerB
 
             peer_b_read = asyncio.async(peerB.read())
-            peer_b_read.peer = peerB
             peer_b_read.other_peer = peerA
 
             done, pending = yield from asyncio.wait([peer_a_read, peer_b_read], return_when=asyncio.FIRST_COMPLETED)
