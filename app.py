@@ -184,7 +184,7 @@ class WebSocketHandler:
         log.info('Running roulette: %s, %s' % (peerA, peerB))
 
         @asyncio.coroutine
-        def _close_connections():
+        def close_connections():
             yield from asyncio.wait([peerA.close(), peerB.close()], return_when=asyncio.ALL_COMPLETED)
 
         def parse(data):
@@ -204,13 +204,13 @@ class WebSocketHandler:
         # get offer
         data = yield from peerA.read(timeout=READ_TIMEOUT)
         if not data:
-            yield from _close_connections()
+            yield from close_connections()
             return
 
         offer = parse(data)
         if offer is None or offer.jsep is None or offer.jsep.type != 'offer':
             log.warning('Invalid offer received')
-            yield from _close_connections()
+            yield from close_connections()
             return
 
         # send offer
@@ -219,13 +219,13 @@ class WebSocketHandler:
         # wait for answer
         data = yield from peerB.read(timeout=READ_TIMEOUT)
         if not data:
-            yield from _close_connections()
+            yield from close_connections()
             return
 
         answer = parse(data)
         if answer is None or answer.jsep is None or answer.jsep.type != 'answer':
             log.warning('Invalid answer received')
-            yield from _close_connections()
+            yield from close_connections()
             return
 
         # dispatch answer
@@ -257,7 +257,7 @@ class WebSocketHandler:
             break
 
         # close connections
-        yield from _close_connections()
+        yield from close_connections()
 
 
 @asyncio.coroutine
