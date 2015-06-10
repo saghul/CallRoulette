@@ -2,8 +2,8 @@
 function runCallRoulette() {
     if (!rtcninja.hasWebRTC()) {
         console.log("WebRTC is NOT supported!");
-	alertify.error('Your browser does not support WebRTC');
-	return;
+        alertify.error('Your browser does not support WebRTC');
+        return;
     }
 
     console.log("WebRTC is supported!");
@@ -11,30 +11,26 @@ function runCallRoulette() {
 
     // CallRoulette!
 
-    function CallRoulette(view) {
+    function CallRoulette (view) {
         if (!view) {
             throw Error('invalid view element!');
         }
 
-        this._view = view;
+        this._view = view;         // video DOM element
 
         this._localStream = null;
         this._remoteStream = null;
 
         this._state = 'stopped';
 
-        this._conn = null;
-        this._ws = null;
-
-        this.onstatechanged = null;
+        this._conn = null;         // RTCPeerConnection
+        this._ws = null;           // WebSocket
     }
 
     // Public API
 
     CallRoulette.prototype.getState = function() {
-        var self = this;
-
-        return self._state;
+        return this._state;
     }
 
     CallRoulette.prototype.start = function() {
@@ -50,70 +46,68 @@ function runCallRoulette() {
                 console.log("Local media stream acquired successfully");
                 rtcninja.attachMediaStream(self._view, stream);
                 self._ws = new WebSocket("ws://" + document.location.host + "/ws", "callroulette-v2");
-                self._ws.onmessage = function(event) {
-                    self._processMessages(event.data);
-                };
-                self._ws.onopen = function(event) {
+
+                self._ws.onopen = function (event) {
                     console.log('WS connected');
                     self._setState('started');
                 };
-                self._ws.onclose = function(event) {
-                    console.log('WS closedi');
+
+                self._ws.onmessage = function (event) {
+                    self._processMessages(event.data);
+                };
+
+                self._ws.onclose = function (event) {
+                    console.log('WS closed');
                     self.stop();
                 }
             },
             // error
             function(error) {
-	        alertify.error("Error getting local media stream: " + error);
+                alertify.error("Error getting local media stream: " + error);
                 self.stop();
             });
     }
 
     CallRoulette.prototype.stop = function() {
-        var self = this;
+        if (this._state !== 'stopped') {
+            console.log('Stop');
+            this._setState('stopped');
 
-        if (self._state === 'stopped') {
-            return;
-        }
+            if (this._ws !== null) {
+                this._ws.close();
+                this._ws = null;
+            }
 
-        console.log('Stop');
-        self._setState('stopped');
+            if (this._localStream !== null) {
+                rtcninja.closeMediaStream(this._localStream);
+                this._localStream = null;
+            }
 
-        if (self._ws !== null) {
-            self._ws.close();
-            self._ws = null;
-        }
+            if (this._remoteStream !== null) {
+                rtcninja.closeMediaStream(this._remoteStream);
+                this._remoteStream = null;
+            }
 
-        if (self._localStream !== null) {
-            rtcninja.closeMediaStream(self._localStream);
-            self._localStream = null;
-        }
-
-        if (self._remoteStream !== null) {
-            rtcninja.closeMediaStream(self._remoteStream);
-            self._remoteStream = null;
-        }
-
-        if (self._conn !== null) {
-            self._conn.close();
-            self._conn = null;
+            if (this._conn !== null) {
+                this._conn.close();
+                this._conn = null;
+            }
         }
     }
 
     // Private API
 
     CallRoulette.prototype._setState = function(state) {
-        var self = this;
-        var prevState = self._state;
+        var prevState = this._state;
+        console.log(prevState);
+        console.log(state);
 
         if (prevState === state) {
             return;
         }
 
-        self._state = state;
-        if (typeof self.onstatechanged === 'function') {
-            window.setTimeout(self.onstatechanged, 0, prevState, state);
-        }
+        this._state = state;
+        window.setTimeout(this.onStateChanged.bind(this), 0, prevState);
     }
 
     CallRoulette.prototype._processMessages = function(data) {
@@ -142,7 +136,7 @@ function runCallRoulette() {
                     self.stop()
                 }
             );
-        } else if (msg.jsep && msg.jsep.type == 'offer') {
+        } else if (msg.jsep && msg.jsep.type === 'offer') {
             console.log('Got offer');
             self._initConnection();
             self._conn.setRemoteDescription(
@@ -220,64 +214,38 @@ function runCallRoulette() {
 
         self._conn = new rtcninja.RTCPeerConnection(pcConfig);
         self._conn.addStream(self._localStream);
-        self._conn.onaddstream = function(event, stream) {
-                                    if (self._remoteStream !== null) {
-                                        // only one stream is supported
-                                        return;
-                                    }
-                                    self._remoteStream = stream;
-                                    console.log('Remote stream added');
-                                    rtcninja.attachMediaStream(self._view, stream);
-                                    self._setState('established');
-                                };
-        self._conn.onicecandidate =
-            function(event, candidate) {
-                if (candidate) {
-                    var message = {yo: 'yo', candidate: candidate};
-                    self._ws.send(JSON.stringify(message));
-                }
-            };
+
+        self._conn.onaddstream = function (event, stream) {
+            if (self._remoteStream !== null) {
+                // only one stream is supported
+                return;
+            }
+            self._remoteStream = stream;
+            console.log('Remote stream added');
+
+            rtcninja.attachMediaStream(self._view, stream);
+            self._setState('established');
+        };
+
+        self._conn.onicecandidate = function (event, candidate) {
+            if (candidate) {
+                var message = {yo: 'yo', candidate: candidate};
+                self._ws.send(JSON.stringify(message));
+            }
+        };
     }
 
-    CallRoulette.prototype._createLocalDescription = function(type, onSuccess, onFailure) {
-        var self = this;
-
-        if (type === 'offer') {
-            self._conn.createOffer(
-                // success
-                createSucceeded,
-                // failure
-                function(error) {
-                    onFailure(error);
-                },
-                // constraints
-                null
-            );
-        } else if (type === 'answer') {
-            self._conn.createAnswer(
-                // success
-                createSucceeded,
-                // failure
-                function(error) {
-                    onFailure(error);
-                },
-                // constraints
-                null
-            );
-        } else {
-            throw new Error('type must be "offer" or "answer", but "' +type+ '" was given');
-        }
-
+    CallRoulette.prototype._createLocalDescription = function (type, onSuccess, onFailure) {
         // createAnswer or createOffer succeeded
-        function createSucceeded(desc) {
-            self._conn.setLocalDescription(
+        var fn = function createSucceeded (desc) {
+            this._conn.setLocalDescription(
                 desc,
                 // success
-                function() {
+                (function() {
                     if (onSuccess) {
-                        onSuccess(self._conn.localDescription.sdp);
+                        onSuccess(this._conn.localDescription.sdp);
                     }
-                },
+                }).bind(this),
                 // failure
                 function(error) {
                     if (onFailure) {
@@ -285,15 +253,69 @@ function runCallRoulette() {
                     }
                 }
             );
+        };
+
+        switch (type) {
+        case 'offer':
+            this._conn.createOffer(
+                // success
+                fn.bind(this),
+                // failure
+                function(error) {
+                    onFailure(error);
+                },
+                // constraints
+                null
+            );
+            break;
+        case 'answer':
+            this._conn.createAnswer(
+                // success
+                fn.bind(this),
+                // failure
+                function(error) {
+                    onFailure(error);
+                },
+                // constraints
+                null
+            );
+            break;
+        default:
+            throw new Error('type must be "offer" or "answer", but "' +type+ '" was given');
+        }
+
+    }
+
+    CallRoulette.prototype.onStateChanged = function (prevState) {
+        console.log('State changed: ' + prevState + ' -> ' + this._state);
+
+        if (this._state === 'stopped') {
+            startStopButton.textContent = 'Start';
+        } else {
+            startStopButton.textContent = 'Stop';
+        }
+        switch (this._state) {
+        case 'starting':
+            alertify.message('Connecting...');
+            break;
+        case 'started':
+            alertify.message('Connected, waiting...');
+            break;
+        case 'established':
+            alertify.message('Established');
+            break;
+        case 'stopped':
+            alertify.message('Stopped');
+            break;
+        default:
+            alertify.message('Unexpected state: ' + this._state);
         }
     }
 
     var videoView = document.querySelector('.videoView video');
     var callRoulette = new CallRoulette(videoView);
-    callRoulette.onstatechanged = onStateChanged;
 
     var startStopButton = document.querySelector('#startStopButton');
-    startStopButton.classList.add('enabled');
     startStopButton.addEventListener('click', onStartStopButtonClick, false);
 
     function onStartStopButtonClick() {
@@ -307,36 +329,11 @@ function runCallRoulette() {
         }
     }
 
-    function onStateChanged(prevState, curState) {
-        console.log('State changed: ' + prevState + ' -> ' + curState);
-        if (curState == 'stopped') {
-	    startStopButton.textContent = 'Start';
-        } else {
-	    startStopButton.textContent = 'Stop';
-        }
-        switch (curState) {
-            case 'starting':
-                alertify.message('Connecting...');
-                break;
-            case 'started':
-                alertify.message('Connected, waiting...');
-                break;
-            case 'established':
-                alertify.message('Established');
-                break;
-            case 'stopped':
-                alertify.message('Stopped');
-                break;
-            default:
-                break;
-        }
-    }
-
 }
 
 
 (function (fn) {
-    if (document.readyState != 'loading'){
+    if (document.readyState !== 'loading'){
         fn();
     } else {
         document.addEventListener('DOMContentLoaded', fn);
