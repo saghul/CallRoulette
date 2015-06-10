@@ -99,8 +99,6 @@ function runCallRoulette() {
 
     CallRoulette.prototype._setState = function(state) {
         var prevState = this._state;
-        console.log(prevState);
-        console.log(state);
 
         if (prevState === state) {
             return;
