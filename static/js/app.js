@@ -105,7 +105,7 @@ function runCallRoulette() {
         }
 
         this._state = state;
-        window.setTimeout(this.onStateChanged.bind(this), 0, prevState);
+        window.setTimeout(this._onStateChanged.bind(this), 0, prevState);
     }
 
     CallRoulette.prototype._processMessages = function(data) {
@@ -234,16 +234,18 @@ function runCallRoulette() {
     }
 
     CallRoulette.prototype._createLocalDescription = function (type, onSuccess, onFailure) {
+        var self = this;
+
         // createAnswer or createOffer succeeded
         var fn = function createSucceeded (desc) {
             this._conn.setLocalDescription(
                 desc,
                 // success
-                (function() {
+                function() {
                     if (onSuccess) {
-                        onSuccess(this._conn.localDescription.sdp);
+                        onSuccess(self._conn.localDescription.sdp);
                     }
-                }).bind(this),
+                },
                 // failure
                 function(error) {
                     if (onFailure) {
@@ -284,7 +286,7 @@ function runCallRoulette() {
 
     }
 
-    CallRoulette.prototype.onStateChanged = function (prevState) {
+    CallRoulette.prototype._onStateChanged = function (prevState) {
         console.log('State changed: ' + prevState + ' -> ' + this._state);
 
         if (this._state === 'stopped') {
@@ -314,6 +316,9 @@ function runCallRoulette() {
     var callRoulette = new CallRoulette(videoView);
 
     var startStopButton = document.querySelector('#startStopButton');
+    // Enable the button only when the browser has been flagged as
+    // WebRTC capable
+    startStopButton.classList.add('enabled');
     startStopButton.addEventListener('click', onStartStopButtonClick, false);
 
     function onStartStopButtonClick() {
