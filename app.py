@@ -22,9 +22,6 @@ INDEX_FILE = os.path.join(BASE_DIR, 'index.html')
 
 READ_TIMEOUT = 5.0
 
-sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
-sslcontext.load_cert_chain('server.crt', 'server.key')
-
 
 class LazyFileHandler:
     def __init__(self, filename, content_type):
@@ -266,8 +263,6 @@ class WebSocketHandler:
 
 @asyncio.coroutine
 def init(loop):
-   
-
     app = web.Application(loop=loop)
     app.router.add_route('GET', '/', LazyFileHandler(INDEX_FILE, 'text/html'))
     app.router.add_route('GET', '/ws', WebSocketHandler())
@@ -292,4 +287,3 @@ del tasks
 loop.close()
 
 sys.exit(0)
-
