@@ -22,6 +22,8 @@ INDEX_FILE = os.path.join(BASE_DIR, 'index.html')
 
 READ_TIMEOUT = 5.0
 
+sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+sslcontext.load_cert_chain('server.crt', 'server.key')
 
 class LazyFileHandler:
     def __init__(self, filename, content_type):
