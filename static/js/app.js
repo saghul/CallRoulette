@@ -1,4 +1,3 @@
-
 function runCallRoulette() {
     if (!rtcninja.hasWebRTC()) {
         console.log("WebRTC is NOT supported!");
@@ -11,20 +10,20 @@ function runCallRoulette() {
 
     // CallRoulette!
 
-    function CallRoulette (view) {
+    function CallRoulette(view) {
         if (!view) {
             throw Error('invalid view element!');
         }
 
-        this._view = view;         // video DOM element
+        this._view = view; // video DOM element
 
         this._localStream = null;
         this._remoteStream = null;
 
         this._state = 'stopped';
 
-        this._conn = null;         // RTCPeerConnection
-        this._ws = null;           // WebSocket
+        this._conn = null; // RTCPeerConnection
+        this._ws = null; // WebSocket
     }
 
     // Public API
@@ -39,24 +38,24 @@ function runCallRoulette() {
         console.log('Start');
         self._setState('starting');
 
-        rtcninja.getUserMedia({audio: true, video: true},
+        rtcninja.getUserMedia({ audio: true, video: true },
             // success
             function(stream) {
                 self._localStream = stream;
                 console.log("Local media stream acquired successfully");
                 rtcninja.attachMediaStream(self._view, stream);
-                self._ws = new WebSocket("ws://" + document.location.host + "/ws", "callroulette-v2");
+                self._ws = new WebSocket("wss://" + document.location.host + "/ws", "callroulette-v2");
 
-                self._ws.onopen = function (event) {
+                self._ws.onopen = function(event) {
                     console.log('WS connected');
                     self._setState('started');
                 };
 
-                self._ws.onmessage = function (event) {
+                self._ws.onmessage = function(event) {
                     self._processMessages(event.data);
                 };
 
-                self._ws.onclose = function (event) {
+                self._ws.onclose = function(event) {
                     console.log('WS closed');
                     self.stop();
                 }
@@ -125,7 +124,7 @@ function runCallRoulette() {
                 'offer',
                 // onSuccess
                 function(sdp) {
-                    var reply = {yo: 'yo', jsep: {type: 'offer', sdp: sdp}};
+                    var reply = { yo: 'yo', jsep: { type: 'offer', sdp: sdp } };
                     self._ws.send(JSON.stringify(reply));
                 },
                 // onFailure
@@ -145,7 +144,7 @@ function runCallRoulette() {
                         'answer',
                         // onSuccess
                         function(sdp) {
-                            var reply = {yo: 'yo', jsep: {type: 'answer', sdp: sdp}};
+                            var reply = { yo: 'yo', jsep: { type: 'answer', sdp: sdp } };
                             self._ws.send(JSON.stringify(reply));
                         },
                         // onFailure
@@ -171,8 +170,7 @@ function runCallRoulette() {
             self._conn.setRemoteDescription(
                 new rtcninja.RTCSessionDescription(msg.jsep),
                 // success
-                function() {
-                },
+                function() {},
                 // failure
                 function(error) {
                     self.stop();
@@ -186,12 +184,12 @@ function runCallRoulette() {
             }
 
             self._conn.addIceCandidate(new rtcninja.RTCIceCandidate(msg.candidate),
-                                       // success
-                                       function () {},
-                                       // failure
-                                       function (error) {
-                                           console.log('Error adding remote ICE candidate: ' + error);
-                                       });
+                // success
+                function() {},
+                // failure
+                function(error) {
+                    console.log('Error adding remote ICE candidate: ' + error);
+                });
         } else {
             console.log('Invalid message: ' + data);
         }
@@ -199,8 +197,11 @@ function runCallRoulette() {
 
     CallRoulette.prototype._initConnection = function() {
         var self = this;
-        var pcConfig = {iceServers: [{"url": 'stun:stun.l.google.com:19302'},
-                                     {"url": "stun:stun.services.mozilla.com"}]};
+        var pcConfig = {
+            iceServers: [{ "url": 'stun:stun.l.google.com:19302' },
+                { "url": "stun:stun.services.mozilla.com" }
+            ]
+        };
 
         if (self._conn !== null) {
             throw new Error('Connection already exists');
@@ -213,7 +214,7 @@ function runCallRoulette() {
         self._conn = new rtcninja.RTCPeerConnection(pcConfig);
         self._conn.addStream(self._localStream);
 
-        self._conn.onaddstream = function (event, stream) {
+        self._conn.onaddstream = function(event, stream) {
             if (self._remoteStream !== null) {
                 // only one stream is supported
                 return;
@@ -225,19 +226,19 @@ function runCallRoulette() {
             self._setState('established');
         };
 
-        self._conn.onicecandidate = function (event, candidate) {
+        self._conn.onicecandidate = function(event, candidate) {
             if (candidate) {
-                var message = {yo: 'yo', candidate: candidate};
+                var message = { yo: 'yo', candidate: candidate };
                 self._ws.send(JSON.stringify(message));
             }
         };
     }
 
-    CallRoulette.prototype._createLocalDescription = function (type, onSuccess, onFailure) {
+    CallRoulette.prototype._createLocalDescription = function(type, onSuccess, onFailure) {
         var self = this;
 
         // createAnswer or createOffer succeeded
-        var fn = function createSucceeded (desc) {
+        var fn = function createSucceeded(desc) {
             this._conn.setLocalDescription(
                 desc,
                 // success
@@ -256,37 +257,37 @@ function runCallRoulette() {
         };
 
         switch (type) {
-        case 'offer':
-            this._conn.createOffer(
-                // success
-                fn.bind(this),
-                // failure
-                function(error) {
-                    onFailure(error);
-                },
-                // constraints
-                null
-            );
-            break;
-        case 'answer':
-            this._conn.createAnswer(
-                // success
-                fn.bind(this),
-                // failure
-                function(error) {
-                    onFailure(error);
-                },
-                // constraints
-                null
-            );
-            break;
-        default:
-            throw new Error('type must be "offer" or "answer", but "' +type+ '" was given');
+            case 'offer':
+                this._conn.createOffer(
+                    // success
+                    fn.bind(this),
+                    // failure
+                    function(error) {
+                        onFailure(error);
+                    },
+                    // constraints
+                    null
+                );
+                break;
+            case 'answer':
+                this._conn.createAnswer(
+                    // success
+                    fn.bind(this),
+                    // failure
+                    function(error) {
+                        onFailure(error);
+                    },
+                    // constraints
+                    null
+                );
+                break;
+            default:
+                throw new Error('type must be "offer" or "answer", but "' + type + '" was given');
         }
 
     }
 
-    CallRoulette.prototype._onStateChanged = function (prevState) {
+    CallRoulette.prototype._onStateChanged = function(prevState) {
         console.log('State changed: ' + prevState + ' -> ' + this._state);
 
         if (this._state === 'stopped') {
@@ -295,20 +296,20 @@ function runCallRoulette() {
             startStopButton.textContent = 'Stop';
         }
         switch (this._state) {
-        case 'starting':
-            alertify.message('Connecting...');
-            break;
-        case 'started':
-            alertify.message('Connected, waiting...');
-            break;
-        case 'established':
-            alertify.message('Established');
-            break;
-        case 'stopped':
-            alertify.message('Stopped');
-            break;
-        default:
-            alertify.message('Unexpected state: ' + this._state);
+            case 'starting':
+                alertify.message('Connecting...');
+                break;
+            case 'started':
+                alertify.message('Connected, waiting...');
+                break;
+            case 'established':
+                alertify.message('Established');
+                break;
+            case 'stopped':
+                alertify.message('Stopped');
+                break;
+            default:
+                alertify.message('Unexpected state: ' + this._state);
         }
     }
 
@@ -335,11 +336,10 @@ function runCallRoulette() {
 }
 
 
-(function (fn) {
-    if (document.readyState !== 'loading'){
+(function(fn) {
+    if (document.readyState !== 'loading') {
         fn();
     } else {
         document.addEventListener('DOMContentLoaded', fn);
     }
 })(runCallRoulette);
-

@@ -6,11 +6,13 @@ import mimetypes
 import os
 import signal
 import sys
+import ssl
 
 from aiohttp import errors, web
 from jsonmodels import models, fields
 from jsonmodels.errors import ValidationError
 
+port=5000
 
 logging.basicConfig(level=logging.DEBUG)
 log = logging.getLogger('CallRoulette')
@@ -20,6 +22,9 @@ STATIC_FILES = os.path.join(BASE_DIR, 'static')
 INDEX_FILE = os.path.join(BASE_DIR, 'index.html')
 
 READ_TIMEOUT = 5.0
+
+sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+sslcontext.load_cert_chain('server.crt', 'server.key')
 
 
 class LazyFileHandler:
@@ -32,8 +37,10 @@ class LazyFileHandler:
     def __call__(self, request):
         if self.data is None:
             try:
+                
                 with open(self.filename, 'rb') as f:
                     self.data = f.read()
+                   
             except IOError:
                 log.warning('Could not load %s file' % self.filename)
                 raise web.HTTPNotFound()
@@ -155,7 +162,8 @@ class WebSocketHandler:
 
     @asyncio.coroutine
     def __call__(self, request):
-        ws = web.WebSocketResponse(protocols=('callroulette-v2',))
+        print (request,":::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::")
+        ws = web.WebSocketResponse(protocols=('callroulette-v2'))
         ws.start(request)
 
         conn = Connection(ws)
@@ -262,14 +270,17 @@ class WebSocketHandler:
 
 @asyncio.coroutine
 def init(loop):
+
+   
+
     app = web.Application(loop=loop)
     app.router.add_route('GET', '/', LazyFileHandler(INDEX_FILE, 'text/html'))
     app.router.add_route('GET', '/ws', WebSocketHandler())
     app.router.add_route('GET', '/static/{path:.*}', StaticFilesHandler(STATIC_FILES))
 
     handler = app.make_handler()
-    server = yield from loop.create_server(handler, '0.0.0.0', 8080)
-    print("Server started at 0.0.0.0:8080")
+    server = yield from loop.create_server(handler, '0.0.0.0', port,ssl=sslcontext)
+    print("Server started at 0.0.0.0:"+str(port))
     return server, handler
 
 
