@@ -272,7 +272,7 @@ def init(loop):
     app.router.add_route('GET', '/static/{path:.*}', StaticFilesHandler(STATIC_FILES))
 
     handler = app.make_handler()
-    IP = '127.0.0.1'
+    IP = '0.0.0.0'
     log.debug("bazz2")
     server = yield from loop.create_server(handler, IP, 8080, ssl=sslcontext)
     log.info("Server started at %s:8080" % IP)
