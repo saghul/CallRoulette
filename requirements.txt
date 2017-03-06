@@ -1,2 +1,3 @@
-aiohttp>=0.15.3
+aiohttp>=1.1
+async_timeout
 jsonmodels==2.0.1

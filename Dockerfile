@@ -1,16 +1,14 @@
 FROM python:3
 
-ADD app.py /
-ADD static /static
-ADD index.html /
-ADD requirements.txt /
+WORKDIR /usr/src/call-roulette
 
-ADD server.crt /
-ADD server.csr /
-ADD server.key /
+COPY app.py /usr/src/call-roulette
+COPY static /usr/src/call-roulette/static
+COPY index.html /usr/src/call-roulette
+COPY requirements.txt /usr/src/call-roulette
 
-RUN pip install -r requirements.txt
+RUN pip install -r /usr/src/call-roulette/requirements.txt
 
 EXPOSE 8080
 
-CMD [ "python", "./app.py" ]
+ENTRYPOINT [ "python", "/usr/src/call-roulette/app.py" ]
