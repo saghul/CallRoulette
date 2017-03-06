@@ -265,7 +265,6 @@ class WebSocketHandler:
 
 @asyncio.coroutine
 def init(loop):
-    log.debug("bazz")
     app = web.Application(loop=loop)
     app.router.add_route('GET', '/', LazyFileHandler(INDEX_FILE, 'text/html'))
     app.router.add_route('GET', '/ws', WebSocketHandler())
@@ -273,13 +272,11 @@ def init(loop):
 
     handler = app.make_handler()
     IP = '0.0.0.0'
-    log.debug("bazz2")
     server = yield from loop.create_server(handler, IP, 8080, ssl=sslcontext)
     log.info("Server started at %s:8080" % IP)
     return server, handler
 
 
-log.debug("foo")
 loop = asyncio.new_event_loop()
 asyncio.set_event_loop(loop)
 server, handler = loop.run_until_complete(init(loop))
