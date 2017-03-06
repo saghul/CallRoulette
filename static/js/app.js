@@ -45,7 +45,7 @@ function runCallRoulette() {
             function (stream) {
                 self._localStream = stream;
                 console.log("Local media stream acquired successfully");
-                rtcninja.attachMediaStream(self._view, stream);
+                rtcninja.attachMediaStream(self._localView, stream);
                 self._ws = new WebSocket("wss://" + document.location.host + "/ws", "callroulette-v2");
 
                 self._ws.onopen = function (event) {
@@ -126,6 +126,7 @@ function runCallRoulette() {
                 'offer',
                 // onSuccess
                 function(sdp) {
+                    console.log('send offer: ' + sdp);
                     var reply = {yo: 'yo', jsep: {type: 'offer', sdp: sdp}};
                     self._ws.send(JSON.stringify(reply));
                 },
@@ -163,7 +164,7 @@ function runCallRoulette() {
                 }
             );
         } else if (msg.jsep && msg.jsep.type == 'answer') {
-            console.log('Got answer');
+            console.log('Got answer: ' + msg.jsep.sdp);
 
             if (self._conn === null) {
                 throw new Error('Connection does not exist yet');
