@@ -11,12 +11,13 @@ function runCallRoulette() {
 
     // CallRoulette!
 
-    function CallRoulette (view) {
-        if (!view) {
+    function CallRoulette (localView, remoteView) {
+        if (!localView || !remoteView) {
             throw Error('invalid view element!');
         }
 
-        this._view = view;         // video DOM element
+        this._localView = localView;   // local Video DOM element
+        this._remoteView = remoteView; // remote Video DOM element
 
         this._localStream = null;
         this._remoteStream = null;
@@ -41,10 +42,10 @@ function runCallRoulette() {
 
         rtcninja.getUserMedia({audio: true, video: true},
             // success
-            function(stream) {
+            function (stream) {
                 self._localStream = stream;
                 console.log("Local media stream acquired successfully");
-                rtcninja.attachMediaStream(self._view, stream);
+                rtcninja.attachMediaStream(self._localView, stream);
                 self._ws = new WebSocket("wss://" + document.location.host + "/ws", "callroulette-v2");
 
                 self._ws.onopen = function (event) {
@@ -62,7 +63,7 @@ function runCallRoulette() {
                 }
             },
             // error
-            function(error) {
+            function (error) {
                 alertify.error("Error getting local media stream: " + error);
                 self.stop();
             });
@@ -125,6 +126,7 @@ function runCallRoulette() {
                 'offer',
                 // onSuccess
                 function(sdp) {
+                    console.log('send offer: ' + sdp);
                     var reply = {yo: 'yo', jsep: {type: 'offer', sdp: sdp}};
                     self._ws.send(JSON.stringify(reply));
                 },
@@ -162,7 +164,7 @@ function runCallRoulette() {
                 }
             );
         } else if (msg.jsep && msg.jsep.type == 'answer') {
-            console.log('Got answer');
+            console.log('Got answer: ' + msg.jsep.sdp);
 
             if (self._conn === null) {
                 throw new Error('Connection does not exist yet');
@@ -221,7 +223,7 @@ function runCallRoulette() {
             self._remoteStream = stream;
             console.log('Remote stream added');
 
-            rtcninja.attachMediaStream(self._view, stream);
+            rtcninja.attachMediaStream(self._remoteView, stream);
             self._setState('established');
         };
 
@@ -312,24 +314,25 @@ function runCallRoulette() {
         }
     }
 
-    var videoView = document.querySelector('.videoView video');
-    var callRoulette = new CallRoulette(videoView);
+    var videoView = document.querySelector('.videoContainer .localVideo');
+    var remoteVideoView = document.querySelector('.videoContainer .remoteVideo');
+    var callRoulette = new CallRoulette(videoView, remoteVideoView);
 
-    var startStopButton = document.querySelector('#startStopButton');
-    // Enable the button only when the browser has been flagged as
-    // WebRTC capable
-    startStopButton.classList.add('enabled');
-    startStopButton.addEventListener('click', onStartStopButtonClick, false);
+    if (rtcninja.hasWebRTC()) {
+        // Enable the button only when the browser has been flagged as
+        // WebRTC capable
+        var startStopButton = document.querySelector('#startStopButton');
+        startStopButton.classList.add('enabled');
 
-    function onStartStopButtonClick() {
-        var state = callRoulette.getState();
-
-        console.log('State: ' + state);
-        if (state === 'stopped') {
-            callRoulette.start();
-        } else {
-            callRoulette.stop();
-        }
+        startStopButton.addEventListener('click', function () {
+            var state = callRoulette.getState();
+            console.log('State: ' + state);
+            if (state === 'stopped') {
+                callRoulette.start();
+            } else {
+                callRoulette.stop();
+            }
+        });
     }
 
 }

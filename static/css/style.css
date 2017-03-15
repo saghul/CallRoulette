@@ -37,14 +37,22 @@ div.videoContainer {
 	-webkit-justify-content: center;
 }
 
-div.videoContainer > div.videoView {
-	position: relative;
+.videoContainer > .localVideo {
+	display: block;
+	width: 135px;
+	height: 100px;
+    -moz-transform: scaleX(-1);
+    -o-transform: scaleX(-1);
+    -webkit-transform: scaleX(-1);
+    transform: scaleX(-1);
+    filter: FlipH;
+    -ms-filter: "FlipH";
 }
 
-div.videoContainer > div.videoView > video {
+.videoContainer > .remoteVideo {
 	display: block;
-	height: 800px;
-	height: 600px;
+	width: 600px;
+	height: 450px;
 	background-color: #444;
 }
 
@@ -81,7 +89,7 @@ div#startStopButton {
 	z-index: 20;
 }
 
-div#startStopButton:hover {
+div#startStopButton.enabled:hover {
 	background: #3cb0fd;
 	background-image: -webkit-linear-gradient(top, #3cb0fd, #3498db);
 	background-image: -moz-linear-gradient(top, #3cb0fd, #3498db);

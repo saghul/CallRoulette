@@ -1,2 +1,2 @@
-aiohttp>=0.15.3
+aiohttp>=1.1
 jsonmodels==2.0.1
