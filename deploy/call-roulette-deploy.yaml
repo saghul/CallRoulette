@@ -1,0 +1,136 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: call-roulette
+---
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+ name: call-roulette
+ namespace: call-roulette
+ labels:
+   app: call-roulette
+spec:
+ replicas: 1
+ template:
+   metadata:
+     labels:
+       app: call-roulette
+   spec:
+     containers:
+     - name: call-roulette
+       image: juandebravo/call-roulette:0.4
+       readinessProbe:
+         httpGet:
+           path: /ping
+           port: 8080
+           scheme: HTTP
+       livenessProbe:
+         httpGet:
+           path: /ping
+           port: 8080
+           scheme: HTTP
+         initialDelaySeconds: 10
+         timeoutSeconds: 1
+       ports:
+        - name: default-port
+          containerPort: 8080
+       resources:
+         requests:
+           memory: 100Mi
+         limits:
+           memory: 200Mi
+---
+kind: Service
+apiVersion: v1
+metadata:
+ labels:
+   app: call-roulette
+ name: call-roulette
+ namespace: call-roulette
+spec:
+ type: LoadBalancer
+ ports:
+ - port: 80
+   targetPort: 8080
+ selector:
+   app: call-roulette
+---
+apiVersion: v1
+data:
+  enable-vts-status: "true"
+kind: ConfigMap
+metadata:
+  name: nginx-ingress-lb-conf
+  namespace: kube-system
+---
+# https://github.com/kubernetes/ingress/blob/master/examples/deployment/nginx/nginx-ingress-controller.yaml
+# https://github.com/kubernetes/minikube/blob/master/deploy/addons/ingress/ingress-rc.yaml
+apiVersion: extensions/v1beta1
+kind: Deployment
+metadata:
+  name: nginx-ingress-controller
+  namespace: kube-system
+  labels:
+    k8s-app: nginx-ingress-controller
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        k8s-app: nginx-ingress-controller
+        name: nginx-ingress-controller
+      annotations:
+        prometheus.io/scrape: 'true'
+        prometheus.io/port: '10254'
+    spec:
+      terminationGracePeriodSeconds: 60
+      containers:
+      - image: gcr.io/google_containers/nginx-ingress-controller:0.9.0-beta.3
+        name: nginx-ingress-controller
+        imagePullPolicy: IfNotPresent
+        readinessProbe:
+          httpGet:
+            path: /healthz
+            port: 10254
+            scheme: HTTP
+        livenessProbe:
+          httpGet:
+            path: /healthz
+            port: 10254
+            scheme: HTTP
+          initialDelaySeconds: 10
+          timeoutSeconds: 1
+        ports:
+        - containerPort: 80
+          hostPort: 80
+        - containerPort: 443
+          hostPort: 443
+        env:
+          - name: POD_NAME
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.name
+          - name: POD_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+        args:
+        - /nginx-ingress-controller
+        - --default-backend-service=call-roulette/call-roulette
+        - --configmap=$(POD_NAMESPACE)/nginx-ingress-lb-conf
+---
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: call-roulette
+  namespace: call-roulette
+spec:
+  rules:
+  - host: call-roulette
+    http:
+      paths:
+      - path: /
+        backend:
+          serviceName: call-roulette
+          servicePort: 80
