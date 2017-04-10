@@ -1,12 +1,15 @@
 
+import os
+import signal
+import sys
+import argparse
+import ssl
+
 import asyncio
 import json
 import logging
 import mimetypes
-import os
-import signal
-import sys
-import ssl
+
 
 from aiohttp import errors, web
 from jsonmodels import models, fields
@@ -264,7 +267,7 @@ class WebSocketHandler:
 
 
 @asyncio.coroutine
-def init(loop):
+def init(loop, ssl_context):
     app = web.Application(loop=loop)
     app.router.add_route('GET', '/', LazyFileHandler(INDEX_FILE, 'text/html'))
     app.router.add_route('GET', '/ws', WebSocketHandler())
@@ -272,21 +275,33 @@ def init(loop):
 
     handler = app.make_handler()
     IP = '0.0.0.0'
-    server = yield from loop.create_server(handler, IP, 8080, ssl=sslcontext)
+    kwargs = {'ssl': ssl_context} if ssl_context is not None else {}
+    server = yield from loop.create_server(handler, IP, 8080, **kwargs)
     log.info("Server started at %s:8080" % IP)
     return server, handler
 
 
-loop = asyncio.new_event_loop()
-asyncio.set_event_loop(loop)
-server, handler = loop.run_until_complete(init(loop))
-loop.add_signal_handler(signal.SIGINT, loop.stop)
-loop.run_forever()
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ssl", help="Use SSL", action="store_true")
+    args = parser.parse_args()
 
-server.close()
-tasks = [server.wait_closed(), handler.finish_connections()]
-loop.run_until_complete(asyncio.wait(tasks, loop=loop))
-del tasks
-loop.close()
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
 
-sys.exit(0)
+    ssl_context = None
+    if args.ssl:
+        ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+        ssl_context.load_cert_chain('server.crt', 'server.key')
+
+    server, handler = loop.run_until_complete(init(loop, ssl_context))
+    loop.add_signal_handler(signal.SIGINT, loop.stop)
+    loop.run_forever()
+
+    server.close()
+    tasks = [server.wait_closed(), handler.finish_connections()]
+    loop.run_until_complete(asyncio.wait(tasks, loop=loop))
+    del tasks
+    loop.close()
+
+    sys.exit(0)

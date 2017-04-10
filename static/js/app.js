@@ -46,7 +46,15 @@ function runCallRoulette() {
                 self._localStream = stream;
                 console.log("Local media stream acquired successfully");
                 rtcninja.attachMediaStream(self._localView, stream);
-                self._ws = new WebSocket("wss://" + document.location.host + "/ws", "callroulette-v2");
+
+                // Use WSS only if running under https
+                var ws_protocol = /^http:/.test(document.location.protocol)
+                                ? 'ws'
+                                : 'wss';
+
+                self._ws = new WebSocket(
+                    ws_protocol + "://" + document.location.host + "/ws", "callroulette-v2"
+                );
 
                 self._ws.onopen = function (event) {
                     console.log('WS connected');
