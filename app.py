@@ -160,12 +160,13 @@ class Connection:
 
 
 class WebSocketHandler:
-    def __init__(self):
+    def __init__(self, ping_timeout):
         self.waiter = None
+        self.ping_timeout = ping_timeout
 
     @asyncio.coroutine
     def __call__(self, request):
-        ws = web.WebSocketResponse(protocols=('callroulette-v2',))
+        ws = web.WebSocketResponse(protocols=('callroulette-v2',), heartbeat=self.ping_timeout)
         ws.start(request)
 
         conn = Connection(ws)
@@ -271,10 +272,10 @@ class WebSocketHandler:
 
 
 @asyncio.coroutine
-def init(loop, ssl_context):
+def init(loop, ssl_context, ping_timeout=10.0):
     app = web.Application(loop=loop)
     app.router.add_route('GET', '/', LazyFileHandler(INDEX_FILE, 'text/html'))
-    app.router.add_route('GET', '/ws', WebSocketHandler())
+    app.router.add_route('GET', '/ws', WebSocketHandler(ping_timeout))
     app.router.add_route('GET', '/ping', PingHandler())
     app.router.add_route('GET', '/static/{path:.*}', StaticFilesHandler(STATIC_FILES))
 
@@ -289,6 +290,9 @@ def init(loop, ssl_context):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--ssl", help="Use SSL", action="store_true")
+    parser.add_argument("--ping", type=float, default="10.0",
+                        help="Ping timeout for server originated hearbeats")
+
     args = parser.parse_args()
 
     loop = asyncio.new_event_loop()
@@ -299,7 +303,7 @@ if __name__ == '__main__':
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
         ssl_context.load_cert_chain('server.crt', 'server.key')
 
-    server, handler = loop.run_until_complete(init(loop, ssl_context))
+    server, handler = loop.run_until_complete(init(loop, ssl_context, args.ping))
     loop.add_signal_handler(signal.SIGINT, loop.stop)
     loop.run_forever()
 
