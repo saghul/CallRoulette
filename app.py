@@ -25,8 +25,6 @@ INDEX_FILE = os.path.join(BASE_DIR, 'index.html')
 
 READ_TIMEOUT = 5.0
 
-sslcontext = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
-sslcontext.load_cert_chain('server.crt', 'server.key')
 
 class LazyFileHandler:
     def __init__(self, filename, content_type):
@@ -44,6 +42,12 @@ class LazyFileHandler:
                 log.warning('Could not load %s file' % self.filename)
                 raise web.HTTPNotFound()
         return web.Response(body=self.data, content_type=self.content_type)
+
+
+class PingHandler:
+
+    def __call__(self, request):
+        return web.Response(body=bytes('pong', 'utf-8'), content_type='application/json')
 
 
 class StaticFilesHandler:
@@ -271,6 +275,7 @@ def init(loop, ssl_context):
     app = web.Application(loop=loop)
     app.router.add_route('GET', '/', LazyFileHandler(INDEX_FILE, 'text/html'))
     app.router.add_route('GET', '/ws', WebSocketHandler())
+    app.router.add_route('GET', '/ping', PingHandler())
     app.router.add_route('GET', '/static/{path:.*}', StaticFilesHandler(STATIC_FILES))
 
     handler = app.make_handler()
