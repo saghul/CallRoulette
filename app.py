@@ -287,11 +287,25 @@ def init(loop, ssl_context, ping_timeout=10.0):
     return server, handler
 
 
+class EnvDefault(argparse.Action):
+    def __init__(self, env_var, required=True, default=None, **kwargs):
+        if env_var in os.environ:
+            default = os.environ[env_var]
+        if required and default:
+            required = False
+        super(EnvDefault, self).__init__(default=default, required=required, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        setattr(namespace, self.dest, values)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--ssl", help="Use SSL", action="store_true")
     parser.add_argument("--ping", type=float, default="10.0",
-                        help="Ping timeout for server originated hearbeats")
+                        action=EnvDefault, env_var='CALL_ROULETTE_PING',
+                        help="""Ping timeout for server originated hearbeats.
+                        Use --ping argument or the env variable CALL_ROULETTE_PING""")
 
     args = parser.parse_args()
 
