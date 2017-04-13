@@ -3,6 +3,15 @@ kind: Namespace
 metadata:
   name: call-roulette
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: call-roulette
+  namespace: call-roulette
+data:
+  enable-ssl: 'false'
+  ping-timeout: '10.0'
+---
 apiVersion: extensions/v1beta1
 kind: Deployment
 metadata:
@@ -20,6 +29,7 @@ spec:
      containers:
      - name: call-roulette
        image: juandebravo/call-roulette:0.4
+       imagePullPolicy: IfNotPresent
        readinessProbe:
          httpGet:
            path: /ping
@@ -35,6 +45,12 @@ spec:
        ports:
         - name: default-port
           containerPort: 8080
+       env:
+        - name: CALL_ROULETTE_PING
+          valueFrom:
+            configMapKeyRef:
+              name: call-roulette
+              key: ping-timeout
        resources:
          requests:
            memory: 100Mi
