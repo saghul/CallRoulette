@@ -1,0 +1,7 @@
+# docker-compose up
+web:
+  build: .
+  volumes:
+    - .:/usr/src/call-roulette
+  ports:
+    - "8080:8080"
