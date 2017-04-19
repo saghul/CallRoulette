@@ -160,12 +160,13 @@ class Connection:
 
 
 class WebSocketHandler:
-    def __init__(self):
+    def __init__(self, ping_timeout):
         self.waiter = None
+        self.ping_timeout = ping_timeout
 
     @asyncio.coroutine
     def __call__(self, request):
-        ws = web.WebSocketResponse(protocols=('callroulette-v2',))
+        ws = web.WebSocketResponse(protocols=('callroulette-v2',), heartbeat=self.ping_timeout)
         ws.start(request)
 
         conn = Connection(ws)
@@ -271,10 +272,10 @@ class WebSocketHandler:
 
 
 @asyncio.coroutine
-def init(loop, ssl_context):
+def init(loop, ssl_context, ping_timeout=10.0):
     app = web.Application(loop=loop)
     app.router.add_route('GET', '/', LazyFileHandler(INDEX_FILE, 'text/html'))
-    app.router.add_route('GET', '/ws', WebSocketHandler())
+    app.router.add_route('GET', '/ws', WebSocketHandler(ping_timeout))
     app.router.add_route('GET', '/ping', PingHandler())
     app.router.add_route('GET', '/static/{path:.*}', StaticFilesHandler(STATIC_FILES))
 
@@ -286,9 +287,26 @@ def init(loop, ssl_context):
     return server, handler
 
 
+class EnvDefault(argparse.Action):
+    def __init__(self, env_var, required=True, default=None, **kwargs):
+        if env_var in os.environ:
+            default = os.environ[env_var]
+        if required and default:
+            required = False
+        super(EnvDefault, self).__init__(default=default, required=required, **kwargs)
+
+    def __call__(self, parser, namespace, values, option_string=None):
+        setattr(namespace, self.dest, values)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--ssl", help="Use SSL", action="store_true")
+    parser.add_argument("--ping", type=float, default="10.0",
+                        action=EnvDefault, env_var='CALL_ROULETTE_PING',
+                        help="""Ping timeout for server originated hearbeats.
+                        Use --ping argument or the env variable CALL_ROULETTE_PING""")
+
     args = parser.parse_args()
 
     loop = asyncio.new_event_loop()
@@ -299,7 +317,7 @@ if __name__ == '__main__':
         ssl_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
         ssl_context.load_cert_chain('server.crt', 'server.key')
 
-    server, handler = loop.run_until_complete(init(loop, ssl_context))
+    server, handler = loop.run_until_complete(init(loop, ssl_context, args.ping))
     loop.add_signal_handler(signal.SIGINT, loop.stop)
     loop.run_forever()
 
